@@ -1,7 +1,7 @@
 import express from 'express';
 import apiRoutes from './routes/index.js';
 import sequelize from './config/db.js';
-import './modules/models/relation.js';
+import './modules/association/index.js';
 
 const app = express();
 
