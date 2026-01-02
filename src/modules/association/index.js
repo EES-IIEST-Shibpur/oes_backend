@@ -5,6 +5,8 @@ import Option from "../question/option.model.js";
 import NumericalAnswer from "../question/numericalAnswer.model.js";
 import Exam from "../exam/exam.model.js";
 import ExamQuestion from "../exam/exam.question.model.js";
+import ExamAttempt from "../examAttempt/examAttempt.model.js";
+import StudentAnswer from "../examAttempt/studentAttempt.model.js";
 
 /* ---------------- USER ---------------- */
 
@@ -83,6 +85,26 @@ ExamQuestion.belongsTo(Question, {
   as: "question",
 });
 
+Exam.hasMany(ExamAttempt, { foreignKey: "examId" });
+ExamAttempt.belongsTo(Exam, { foreignKey: "examId" });
+
+User.hasMany(ExamAttempt, { foreignKey: "userId" });
+ExamAttempt.belongsTo(User, { foreignKey: "userId" });
+
+/* Student Answers */
+ExamAttempt.hasMany(StudentAnswer, {
+  foreignKey: "examAttemptId",
+  as: "answers",
+  onDelete: "CASCADE",
+});
+
+StudentAnswer.belongsTo(ExamAttempt, {
+  foreignKey: "examAttemptId",
+});
+
+Question.hasMany(StudentAnswer, { foreignKey: "questionId" });
+StudentAnswer.belongsTo(Question, { foreignKey: "questionId" });
+
 export {
   User,
   UserProfile,
@@ -91,4 +113,6 @@ export {
   NumericalAnswer,
   Exam,
   ExamQuestion,
+  ExamAttempt,
+  StudentAnswer,
 };
