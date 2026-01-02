@@ -37,7 +37,7 @@ export const createExam = async (req, res) => {
         console.error(error);
         res.status(500).json({
             success: false,
-            message: "Failed to create exam | Internal Server Error",
+            message: "Server error: Failed to create exam",
         });
     }
 };
@@ -80,7 +80,7 @@ export const addQuestionToExam = async (req, res) => {
         console.error(error.message);
         res.status(500).json({
             success: false,
-            message: "Failed to add question to exam | Internal Server Error"
+            message: "Server error: Failed to add question to exam"
         });
     }
 };
@@ -112,7 +112,7 @@ export const getExamById = async (req, res) => {
         console.error(error.message);
         res.status(500).json({
             success: false,
-            message: "Failed to retrieve exam | Internal Server Error"
+            message: "Server error: Failed to retrieve exam details"
         });
     }
 };
@@ -156,7 +156,7 @@ export const publishExam = async (req, res) => {
         console.error(error.message);
         res.status(500).json({
             success: false,
-            message: "Failed to publish exam | Internal Server Error"
+            message: "Server error: Failed to publish exam"
         });
     }
 };
@@ -185,7 +185,7 @@ export const deleteExam = async (req, res) => {
         console.error(error.message);
         res.status(500).json({
             success: false,
-            message: "Failed to delete exam | Internal Server Error"
+            message: "Server error: Failed to delete exam"
         });
     }
 };
