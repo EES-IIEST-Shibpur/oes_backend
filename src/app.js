@@ -2,6 +2,7 @@ import express from 'express';
 import apiRoutes from './routes/index.js';
 import sequelize from './config/db.js';
 import './modules/association/index.js';
+import "./modules/examAttempt/cron/autoSubmitExamAttempts.js";
 
 const app = express();
 

@@ -58,7 +58,7 @@ export const startExam = async (req, res) => {
     }
 };
 
-//Get exam for attempt
+//Load exam questions for an active attempt
 export const getExamForAttempt = async (req, res) => {
     try {
         const { examId } = req.params;
