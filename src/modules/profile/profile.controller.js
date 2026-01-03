@@ -1,6 +1,5 @@
 import sequelize from "../../config/db.js";
-import User from "../auth/auth.model.js";
-import UserProfile from "./profile.model.js";
+import { User, UserProfile } from "../association/index.js"
 
 // Get user profile
 export const getMyProfile = async (req, res) => {
@@ -32,7 +31,10 @@ export const getMyProfile = async (req, res) => {
     return res.json(user);
   } catch (error) {
     console.error("Get profile error:", error);
-    return res.status(500).json({ error: "Failed to fetch profile" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error: Failed to fetch profile"
+    });
   }
 };
 
@@ -55,28 +57,34 @@ export const updateMyProfile = async (req, res) => {
 
     const user = await User.findByPk(userId, {
       transaction,
-      lock: transaction.LOCK.UPDATE,
-      skipLocked: false
+      lock: {
+        level: transaction.LOCK.UPDATE,
+        of: User,
+      },
     });
-
 
     if (!user) {
       throw new Error("User not found");
     }
 
-    if (fullName) {
+    if (fullName !== undefined) {
       user.fullName = fullName;
       await user.save({ transaction });
     }
 
-    if (user.profile) {
-      await user.profile.update(
+    const profile = await UserProfile.findOne({
+      where: { userId },
+      transaction,
+    });
+
+    if (profile) {
+      await profile.update(
         {
-          ...(course && { course }),
-          ...(department && { department }),
-          ...(year && { year }),
-          ...(semester && { semester }),
-          ...(enrollmentNumber && { enrollmentNumber }),
+          ...(course !== undefined && { course }),
+          ...(department !== undefined && { department }),
+          ...(year !== undefined && { year }),
+          ...(semester !== undefined && { semester }),
+          ...(enrollmentNumber !== undefined && { enrollmentNumber }),
         },
         { transaction }
       );
@@ -89,10 +97,10 @@ export const updateMyProfile = async (req, res) => {
         {
           userId,
           enrollmentNumber,
-          ...(course && { course }),
-          ...(department && { department }),
-          ...(year && { year }),
-          ...(semester && { semester }),
+          ...(course !== undefined && { course }),
+          ...(department !== undefined && { department }),
+          ...(year !== undefined && { year }),
+          ...(semester !== undefined && { semester }),
         },
         { transaction }
       );
@@ -100,17 +108,18 @@ export const updateMyProfile = async (req, res) => {
 
     await transaction.commit();
 
-    const updatedUser = await User.findByPk(userId, {
-      include: [{ model: UserProfile, as: "profile" }],
-    });
-
     return res.json({
+      success: true,
       message: "Profile updated successfully",
-      user: updatedUser,
     });
   } catch (error) {
     if (transaction) await transaction.rollback();
+
     console.error("Update profile error:", error);
-    return res.status(500).json({ error: error.message });
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error: Failed to update profile",
+    });
   }
 };

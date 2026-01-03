@@ -4,7 +4,10 @@ import { requireAuth, requireEmailVerified } from '../../middlewares/auth.middle
 
 const router = express();
 
-router.get('/me', requireAuth, requireEmailVerified, getMyProfile);
-router.put('/me', requireAuth, requireEmailVerified, updateMyProfile);
+router.use(requireAuth);
+router.use(requireEmailVerified);
+
+router.get('/me', getMyProfile);
+router.put('/me', updateMyProfile);
 
 export default router;
