@@ -9,14 +9,17 @@ export const requireAuth = (req, res, next) => {
 
   const token = authHeader.split(" ")[1];
 
-  const decoded = verifyToken(token, process.env.JWT_ACCESS_SECRET);
+  try {
+    const decoded = verifyToken(token, process.env.JWT_ACCESS_SECRET);
 
-  if (!decoded) {
-    return res.status(401).json({ message: "Invalid or expired token" });
+    req.user = decoded; // { userId, role, emailVerified }
+    next();
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired" });
+    }
+    return res.status(401).json({ message: "Invalid token" });
   }
-
-  req.user = decoded; // { userId, role, emailVerified: user.email_verified }
-  next();
 };
 
 export const requireEmailVerified = (req, res, next) => {
