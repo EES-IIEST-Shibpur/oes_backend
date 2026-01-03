@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { Exam, ExamAttempt } from "../../association/index.js";
+import { Exam, ExamAttempt } from "../modules/association/index.js";
 import { getHardEndTime } from "../../../utils/examTime.js";
 
 // Cron job to auto-submit overdue exam attempts every minute

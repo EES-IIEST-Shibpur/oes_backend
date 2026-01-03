@@ -9,6 +9,7 @@ import {
 
 import { getHardEndTime } from "../../utils/examTime.util.js";
 import { calculateExamScore } from "../../services/examScore.service.js";
+import { submitAttempt } from "../../services/examSubmission.service.js";
 
 //Auto-submit attempt helper function
 const autoSubmitAttempt = async (attempt) => {
@@ -189,56 +190,21 @@ export const saveAnswer = async (req, res) => {
 
 //Submit exam
 export const submitExam = async (req, res) => {
-    try {
-        const { examId } = req.params;
-        const userId = req.user.userId;
+    const { examId } = req.params;
+    const userId = req.user.userId;
 
-        const attempt = await ExamAttempt.findOne({
-            where: { examId, userId, status: "IN_PROGRESS" },
-            include: Exam,
-        });
+    const attempt = await ExamAttempt.findOne({
+        where: { examId, userId, status: "IN_PROGRESS" },
+    });
 
-        if (!attempt) {
-            return res.status(400).json({ message: "No active attempt" });
-        }
-
-        const hardEnd = getHardEndTime(attempt.Exam, attempt);
-
-        if (new Date() > hardEnd) {
-            await autoSubmitAttempt(attempt);
-            return res.status(403).json({
-                message: "Time over. Exam auto-submitted.",
-            });
-        }
-
-        const answers = await StudentAnswer.findAll({
-            where: { examAttemptId: attempt.id },
-            include: {
-                model: Question,
-                include: [
-                    { model: Option, as: "options" },
-                    { model: NumericalAnswer },
-                ],
-            },
-        });
-
-        const score = await calculateExamScore(answers);
-
-        attempt.status = "SUBMITTED";
-        attempt.submittedAt = new Date();
-        attempt.score = score;
-
-        await attempt.save();
-
-        res.status(200).json({
-            message: "Exam submitted successfully",
-            score,
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            success: false,
-            message: "Server Error: Unable to submit exam",
-        });
+    if (!attempt) {
+        return res.status(400).json({ message: "No active attempt" });
     }
+
+    await submitAttempt(attempt, "SUBMITTED");
+
+    res.status(200).json({
+        message: "Exam submitted successfully",
+        score: attempt.score,
+    });
 };
