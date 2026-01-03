@@ -1,5 +1,5 @@
 import sequelize from "../../config/db.js";
-import {Question, Option, NumericalAnswer} from "../../modules/association/index.js";
+import {Question, Option, NumericalAnswer} from "../association/index.js";
 
 // Create a new question
 export const createQuestion = async (req, res) => {
