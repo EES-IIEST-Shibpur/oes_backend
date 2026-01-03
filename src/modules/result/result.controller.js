@@ -43,7 +43,7 @@ export const getMyResult = async (req, res) => {
     } catch (error) {
         console.error(error.message);
         res.status(500).json({
-            message: "Unable to fetch result"
+            message: "Server error: Unable to fetch result"
         });
     }
 };

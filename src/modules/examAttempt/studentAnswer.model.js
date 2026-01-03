@@ -20,19 +20,14 @@ const StudentAnswer = sequelize.define(
       allowNull: false,
     },
 
-    selectedOptionId: {
-      type: DataTypes.UUID,
-      allowNull: true, // for MCQ
+    selectedOptionIds: {
+      type: DataTypes.ARRAY(DataTypes.UUID),
+      allowNull: true,
     },
 
     numericalAnswer: {
       type: DataTypes.FLOAT,
-      allowNull: true, // for numerical
-    },
-
-    descriptiveAnswer: {
-      type: DataTypes.TEXT,
-      allowNull: true, // for descriptive
+      allowNull: true,
     },
 
     marksObtained: {

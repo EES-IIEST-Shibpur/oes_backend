@@ -2,10 +2,13 @@ import {
     Exam,
     ExamAttempt,
     Question,
-    Option, StudentAnswer
+    Option,
+    NumericalAnswer,
+    StudentAnswer
 } from "../association/index.js";
 
-import { getHardEndTime } from "../../utils/examTime.js";
+import { getHardEndTime } from "../../utils/examTime.util.js";
+import { calculateExamScore } from "../../services/examScore.service.js";
 
 //Auto-submit attempt helper function
 const autoSubmitAttempt = async (attempt) => {
@@ -113,12 +116,11 @@ export const getExamForAttempt = async (req, res) => {
     }
 };
 
-//Save answer
+// Save answer
 export const saveAnswer = async (req, res) => {
     try {
         const { examId } = req.params;
-        const { questionId, selectedOptionId, numericalAnswer, descriptiveAnswer } =
-            req.body;
+        const { questionId, selectedOptionIds, numericalAnswer } = req.body;
         const userId = req.user.userId;
 
         const attempt = await ExamAttempt.findOne({
@@ -139,12 +141,37 @@ export const saveAnswer = async (req, res) => {
             });
         }
 
+        const question = await Question.findByPk(questionId);
+
+        if (!question) {
+            return res.status(404).json({ message: "Question not found" });
+        }
+
+        if (question.questionType === "SINGLE_CORRECT") {
+            if (
+                Array.isArray(selectedOptionIds) &&
+                selectedOptionIds.length > 1
+            ) {
+                return res.status(400).json({
+                    message:
+                        "Only one option can be selected for SINGLE_CORRECT question",
+                });
+            }
+        }
+
+        if (question.questionType === "NUMERICAL") {
+            if (typeof numericalAnswer !== "number") {
+                return res.status(400).json({
+                    message: "Numerical answer is required for this question",
+                });
+            }
+        }
+
         await StudentAnswer.upsert({
             examAttemptId: attempt.id,
             questionId,
-            selectedOptionId,
+            selectedOptionIds,
             numericalAnswer,
-            descriptiveAnswer,
         });
 
         res.status(200).json({
@@ -188,34 +215,27 @@ export const submitExam = async (req, res) => {
             where: { examAttemptId: attempt.id },
             include: {
                 model: Question,
-                include: { model: Option, as: "options" },
+                include: [
+                    { model: Option, as: "options" },
+                    { model: NumericalAnswer },
+                ],
             },
         });
 
-        let score = 0;
-
-        for (const ans of answers) {
-            if (ans.Question.type === "MCQ") {
-                const correct = ans.Question.options.find((o) => o.isCorrect);
-
-                ans.marksObtained =
-                    correct && correct.id === ans.selectedOptionId ? 1 : 0;
-
-                score += ans.marksObtained;
-                await ans.save();
-            }
-        }
+        const score = await calculateExamScore(answers);
 
         attempt.status = "SUBMITTED";
         attempt.submittedAt = new Date();
         attempt.score = score;
+
         await attempt.save();
 
         res.status(200).json({
             message: "Exam submitted successfully",
+            score,
         });
     } catch (error) {
-        console.error(error.message);
+        console.error(error);
         res.status(500).json({
             success: false,
             message: "Server Error: Unable to submit exam",

@@ -6,7 +6,7 @@ import NumericalAnswer from "../question/numericalAnswer.model.js";
 import Exam from "../exam/exam.model.js";
 import ExamQuestion from "../exam/exam.question.model.js";
 import ExamAttempt from "../examAttempt/examAttempt.model.js";
-import StudentAnswer from "../examAttempt/studentAttempt.model.js";
+import StudentAnswer from "../examAttempt/studentAnswer.model.js";
 
 /* ---------------- USER ---------------- */
 
