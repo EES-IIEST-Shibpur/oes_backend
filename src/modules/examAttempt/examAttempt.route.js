@@ -1,6 +1,6 @@
 import express from "express";
-import { getExamForAttempt, saveAnswer, startExam, submitExam } from "./examAttempt.controller";
-import { requireAuth, requireEmailVerified } from "../../middlewares/auth.middleware";
+import { getExamForAttempt, saveAnswer, startExam, submitExam } from "./examAttempt.controller.js";
+import { requireAuth, requireEmailVerified } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

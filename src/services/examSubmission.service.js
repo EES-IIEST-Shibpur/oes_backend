@@ -1,11 +1,11 @@
-import { sequelize } from "../config/db.js";
+import sequelize from "../config/db.js";
 import {
     ExamAttempt,
     StudentAnswer,
     Question,
     Option,
     NumericalAnswer
-} from "../association/index.js";
+} from "../modules/association/index.js";
 import { calculateExamScore } from "./examScore.service.js";
 
 /**

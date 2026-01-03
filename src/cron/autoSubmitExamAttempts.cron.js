@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { Exam, ExamAttempt } from "../modules/association/index.js";
-import { getHardEndTime } from "../../../utils/examTime.js";
+import { getHardEndTime } from "../utils/examTime.util.js";
 
 // Cron job to auto-submit overdue exam attempts every minute
 cron.schedule("*/1 * * * *", async () => {

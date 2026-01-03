@@ -1,6 +1,6 @@
 import express from "express";
-import { getMyResult } from "./result.controller";
-import { requireAuth, requireEmailVerified } from "../../middlewares/auth.middleware";
+import { getMyResult } from "./result.controller.js";
+import { requireAuth, requireEmailVerified } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

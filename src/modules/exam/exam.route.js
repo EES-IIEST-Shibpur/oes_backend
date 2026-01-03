@@ -1,7 +1,7 @@
 import express from 'express';
-import { addQuestionToExam, createExam, deleteExam, getExamById, publishExam } from './exam.controller';
-import { requireAuth, requireEmailVerified } from '../../middlewares/auth.middleware';
-import requireRole from '../../middlewares/role.middleware';
+import { addQuestionToExam, createExam, deleteExam, getExamById, publishExam } from './exam.controller.js';
+import { requireAuth, requireEmailVerified } from '../../middlewares/auth.middleware.js';
+import requireRole from '../../middlewares/role.middleware.js';
 
 const router = express.Router();
 
