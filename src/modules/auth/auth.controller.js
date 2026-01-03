@@ -230,14 +230,18 @@ export const forgotPassword = async (req, res) => {
         user.passwordResetOTPExpiry = new Date(Date.now() + 15 * 60 * 1000);
         await user.save();
 
-        await sendEmail({
-            to: user.email,
-            subject: "Password Reset OTP",
-            html: forgotPasswordTemplate({
-                fullName: user.fullName,
-                otp,
-            }),
-        });
+        try {
+            await sendEmail({
+                to: user.email,
+                subject: "Password Reset OTP",
+                html: forgotPasswordTemplate({
+                    fullName: user.fullName,
+                    otp,
+                }),
+            });
+        } catch (error) {
+            console.error("Failed to send OTP email:", error);
+        }
 
         return res.status(200).json({
             message: "If the email exists, an OTP has been sent",
