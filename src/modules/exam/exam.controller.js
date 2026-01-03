@@ -1,4 +1,4 @@
-import { Exam, ExamQuestion } from "../association/index.js";
+import { Exam, Question, ExamQuestion } from "../association/index.js";
 
 // Create a new exam (initially in DRAFT state)
 export const createExam = async (req, res) => {
