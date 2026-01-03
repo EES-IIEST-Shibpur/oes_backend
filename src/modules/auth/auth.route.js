@@ -1,16 +1,41 @@
 import express from 'express';
-import { changePassword, forgotPassword, login, resendVerificationEmail, resetPassword, signup, verifyEmail } from './auth.controller.js';
+import {
+    signup,
+    login,
+    verifyEmail,
+    resendVerificationEmail,
+    forgotPassword,
+    resetPassword,
+    changePassword,
+} from './auth.controller.js';
 
-const router = express();
+import {
+    loginLimiter,
+    forgotPasswordLimiter,
+    resetPasswordLimiter,
+} from '../../middlewares/rateLimit.middleware.js';
 
-router.post('/signup', signup)
-router.post('/login', login);
+import {
+    requireAuth,
+    requireEmailVerified,
+} from '../../middlewares/auth.middleware.js';
 
-router.get("/verify-email/:token", verifyEmail);
-router.post("/resend-verification", resendVerificationEmail);
+const router = express.Router();
 
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password', resetPassword);
-router.post('/resend-otp', changePassword);
+router.post('/signup', signup);
+router.post('/login', loginLimiter, login);
+
+router.get('/verify-email/:token', verifyEmail);
+router.post('/resend-verification', resendVerificationEmail);
+
+router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
+router.post('/reset-password', resetPasswordLimiter, resetPassword);
+
+router.post(
+    '/change-password',
+    requireAuth,
+    requireEmailVerified,
+    changePassword
+);
 
 export default router;
