@@ -20,10 +20,10 @@ const autoSubmitAttempt = async (attempt) => {
 
 //Start exam
 export const startExam = async (req, res) => {
-    try {
-        const { examId } = req.params;
-        const userId = req.user.userId;
+    const { examId } = req.params;
+    const userId = req.user.userId;
 
+    try {
         const exam = await Exam.findByPk(examId);
 
         if (!exam || exam.state !== "PUBLISHED") {
@@ -35,27 +35,27 @@ export const startExam = async (req, res) => {
             return res.status(400).json({ message: "Exam not active" });
         }
 
-        const existingAttempt = await ExamAttempt.findOne({
-            where: { examId, userId },
+        const attempt = await sequelize.transaction(async (t) => {
+            return await ExamAttempt.create(
+                { examId, userId },
+                { transaction: t }
+            );
         });
 
-        if (existingAttempt) {
-            return res.status(400).json({ message: "Exam already started" });
-        }
-
-        const attempt = await ExamAttempt.create({
-            examId,
-            userId,
-        });
-
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             message: "Exam started",
             attemptId: attempt.id,
         });
     } catch (error) {
-        console.error(error.message);
-        res.status(500).json({
+        if (error.name === "SequelizeUniqueConstraintError") {
+            return res.status(400).json({
+                message: "Exam already started",
+            });
+        }
+
+        console.error(error);
+        return res.status(500).json({
             success: false,
             message: "Server Error: Unable to start exam",
         });
