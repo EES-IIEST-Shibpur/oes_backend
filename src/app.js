@@ -1,16 +1,16 @@
-import express from 'express';
-import apiRoutes from './routes/index.js';
-import sequelize from './config/db.js';
-import './modules/association/index.js';
+import express from "express";
+import apiRoutes from "./routes/index.js";
+import "./modules/association/index.js";
 import "./cron/autoSubmitExamAttempts.cron.js";
-import { verifyEmailTransporter } from './services/email.service.js';
 
 const app = express();
 
-app.use(express.json());
-sequelize.sync();
-verifyEmailTransporter();
+if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+}
 
-app.use('/api', apiRoutes);
+app.use(express.json());
+
+app.use("/api", apiRoutes);
 
 export default app;

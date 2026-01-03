@@ -6,6 +6,8 @@ import { sendEmail } from "../../services/email.service.js";
 import { verifyEmailTemplate } from "../../templates/verifyEmail.template.js";
 import { generateOTP } from "../../utils/generateOTP.util.js";
 import { forgotPasswordTemplate } from "../../templates/forgotPassword.template.js";
+import { cryptoUtil } from "../../utils/crypto.util.js";
+import { changePasswordTemplate } from "../../templates/changePassword.template.js";
 
 //Signup Controller
 export const signup = async (req, res) => {
@@ -39,13 +41,18 @@ export const signup = async (req, res) => {
         const token = generateEmailVerificationToken(user);
         const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
 
-        await sendEmail({
-            to: user.email,
-            subject: verifyEmailTemplate({
-                fullName: user.fullName,
-                verifyUrl,
-            }),
-        });
+        try {
+            await sendEmail({
+                to: user.email,
+                subject: "Verify your email",
+                html: verifyEmailTemplate({
+                    fullName: user.fullName,
+                    verifyUrl,
+                }),
+            });
+        } catch (error) {
+            console.error("Failed to send verification email:", error);
+        }
 
         await transaction.commit();
 
@@ -285,8 +292,8 @@ export const resetPassword = async (req, res) => {
         }
 
         const isOTPValid = await bcrypt.compare(
-            otp,
-            user.passwordResetOTP
+            String(otp),
+            String(user.passwordResetOTP)
         );
 
         if (!isOTPValid) {
@@ -300,7 +307,6 @@ export const resetPassword = async (req, res) => {
                 message: "Password must be at least 8 characters long",
             });
         }
-
         const newHashedPassword = await bcrypt.hash(newPassword, 10);
 
         user.hashedPassword = newHashedPassword;
@@ -340,9 +346,9 @@ export const changePassword = async (req, res) => {
             });
         }
 
-        const isMatch = await bcrypt.compare(
+        const isMatch = await cryptoUtil.compare(
             currentPassword,
-            user.password
+            user.hashedPassword
         );
 
         if (!isMatch) {
@@ -351,9 +357,9 @@ export const changePassword = async (req, res) => {
             });
         }
 
-        const isSamePassword = await bcrypt.compare(
-            newPassword,
-            user.password
+        const isSamePassword = await cryptoUtil.compare(
+            String(newPassword),
+            String(user.hashedPassword)
         );
 
         if (isSamePassword) {
@@ -368,10 +374,25 @@ export const changePassword = async (req, res) => {
             });
         }
 
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-        user.password = hashedPassword;
+        const hashedPassword = await cryptoUtil.hash(newPassword);
+        user.hashedPassword = hashedPassword;
 
         await user.save();
+
+        try {
+            await sendEmail({
+                to: user.email,
+                subject: "Password Changed Successfully",
+                html: changePasswordTemplate({
+                    fullName: user.fullName,
+                    time: new Date().toLocaleString(),
+                    ip: req.ip,
+                    device: req.headers["user-agent"],
+                }),
+            });
+        } catch (error) {
+            console.error("Failed to send change password email:", error);
+        }
 
         return res.status(200).json({
             success: true,
