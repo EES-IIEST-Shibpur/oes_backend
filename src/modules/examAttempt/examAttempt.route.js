@@ -7,9 +7,9 @@ const router = express.Router();
 router.use(requireAuth);
 router.use(requireEmailVerified);
 
-router.get("/:examId/start", startExam);
+router.post("/:examId/start", startExam);
 router.get("/:examId/attempt", getExamForAttempt);
 router.post("/:examId/save", saveAnswer);
-router.get("/:examId/submit", submitExam);
+router.post("/:examId/submit", submitExam);
 
 export default router;
