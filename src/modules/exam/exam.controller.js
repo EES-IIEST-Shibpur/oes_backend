@@ -1,6 +1,7 @@
 import { fromUTC, toUTC } from "../../utils/dateTime.util.js";
 import { Exam, Question, ExamQuestion } from "../association/index.js";
 import sequelize from "../../config/db.js";
+import { Op } from "sequelize";
 
 const timezone = "Asia/Kolkata";
 
@@ -390,6 +391,75 @@ export const deleteExam = async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Server error: Failed to delete exam"
+        });
+    }
+};
+
+//Get live exams
+export const getLiveExams = async (req, res) => {
+    try {
+        const now = new Date(); // UTC
+
+        const exams = await Exam.findAll({
+            where: {
+                state: "PUBLISHED",
+                startTime: { [Op.lte]: now },
+                endTime: { [Op.gte]: now },
+            },
+            order: [["startTime", "ASC"]],
+            attributes: [
+                "id",
+                "title",
+                "description",
+                "startTime",
+                "endTime",
+                "durationMinutes",
+            ],
+        });
+
+        res.status(200).json({
+            success: true,
+            exams,
+        });
+    } catch (error) {
+        console.error("Error fetching live exams:", error.message);
+        res.status(500).json({
+            success: false,
+            message: "Server error: Failed to retrieve live exams",
+        });
+    }
+};
+
+//Get upcoming exams
+export const getUpcomingExams = async (req, res) => {
+    try {
+        const now = new Date(); // UTC
+
+        const exams = await Exam.findAll({
+            where: {
+                state: "PUBLISHED",
+                startTime: { [Op.gt]: now },
+            },
+            order: [["startTime", "ASC"]],
+            attributes: [
+                "id",
+                "title",
+                "description",
+                "startTime",
+                "endTime",
+                "durationMinutes",
+            ],
+        });
+
+        res.status(200).json({
+            success: true,
+            exams,
+        });
+    } catch (error) {
+        console.error("Error fetching upcoming exams:", error.message);
+        res.status(500).json({
+            success: false,
+            message: "Server error: Failed to retrieve upcoming exams",
         });
     }
 };

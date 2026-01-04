@@ -1,5 +1,5 @@
 import express from 'express';
-import { createExam, deleteExam, getExamById, getExams, publishExam, updateDraftExamDetails, updateQuestionsToExam } from './exam.controller.js';
+import { createExam, deleteExam, getExamById, getExams, getLiveExams, getUpcomingExams, publishExam, updateDraftExamDetails, updateQuestionsToExam } from './exam.controller.js';
 import { requireAuth, requireEmailVerified } from '../../middlewares/auth.middleware.js';
 import requireRole from '../../middlewares/role.middleware.js';
 
@@ -7,6 +7,10 @@ const router = express.Router();
 
 router.use(requireAuth);
 router.use(requireEmailVerified);
+
+router.get('/upcoming', getUpcomingExams);
+router.get('/live', getLiveExams);
+
 router.use(requireRole("ADMIN"));
 
 router.post('/create', createExam);
