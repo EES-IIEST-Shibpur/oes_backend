@@ -10,13 +10,18 @@ const NumericalAnswer = sequelize.define(
       primaryKey: true,
     },
 
+    questionId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      unique: true, // one-to-one with Question
+    },
+
     value: {
       type: DataTypes.FLOAT,
       allowNull: false,
     },
 
     tolerance: {
-      // optional: for decimal answers
       type: DataTypes.FLOAT,
       defaultValue: 0,
     },

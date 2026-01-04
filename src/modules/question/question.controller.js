@@ -1,12 +1,12 @@
 import sequelize from "../../config/db.js";
-import {Question, Option, NumericalAnswer} from "../association/index.js";
+import { Question, Option, NumericalAnswer } from "../association/index.js";
 
 // Create a new question
 export const createQuestion = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
-    const {
+    let {
       statement,
       questionType,
       domain,
@@ -14,11 +14,15 @@ export const createQuestion = async (req, res) => {
       negativeMarks = 0,
       difficulty = "MEDIUM",
       options,
-      numericalAnswer,      // number
-      tolerance = 0,        // optional
+      numericalAnswer,
+      tolerance = 0,
     } = req.body;
 
-    /* basic validation */
+    // Normalize inputs
+    questionType = questionType?.toUpperCase();
+    difficulty = difficulty?.toUpperCase();
+    domain = domain?.toLowerCase();
+
     if (!statement || !questionType || !domain) {
       await t.rollback();
       return res.status(400).json({
@@ -27,26 +31,24 @@ export const createQuestion = async (req, res) => {
       });
     }
 
-    /* create question */
-    const question = await Question.create(
-      {
-        statement,
-        questionType,
-        domain,
-        marks,
-        negativeMarks,
-        difficulty,
-      },
-      { transaction: t }
-    );
-
-    /* MCQ handling */
-    if (questionType === "SINGLE_CORRECT" || questionType === "MULTIPLE_CORRECT") {
-      if (!options || options.length === 0) {
+    // Validate based on question type
+    if (
+      questionType === "SINGLE_CORRECT" ||
+      questionType === "MULTIPLE_CORRECT"
+    ) {
+      if (!Array.isArray(options) || options.length === 0) {
         await t.rollback();
         return res.status(400).json({
           success: false,
           message: "Options are required for MCQ questions",
+        });
+      }
+
+      if (options.some(o => !o.text)) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Option text cannot be empty",
         });
       }
 
@@ -67,7 +69,35 @@ export const createQuestion = async (req, res) => {
           message: "MULTIPLE_CORRECT must have at least one correct option",
         });
       }
+    }
 
+    if (questionType === "NUMERICAL") {
+      if (numericalAnswer === undefined || numericalAnswer === null) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Numerical answer is required",
+        });
+      }
+    }
+
+    // Create Question
+    const question = await Question.create(
+      {
+        statement,
+        questionType,
+        domain,
+        marks,
+        negativeMarks,
+        difficulty,
+      },
+      { transaction: t }
+    );
+
+    if (
+      questionType === "SINGLE_CORRECT" ||
+      questionType === "MULTIPLE_CORRECT"
+    ) {
       const optionRecords = options.map((opt, index) => ({
         questionId: question.id,
         text: opt.text,
@@ -78,16 +108,7 @@ export const createQuestion = async (req, res) => {
       await Option.bulkCreate(optionRecords, { transaction: t });
     }
 
-    /* NUMERICAL handling */
     if (questionType === "NUMERICAL") {
-      if (numericalAnswer === undefined || numericalAnswer === null) {
-        await t.rollback();
-        return res.status(400).json({
-          success: false,
-          message: "Numerical answer is required",
-        });
-      }
-
       await NumericalAnswer.create(
         {
           questionId: question.id,
@@ -103,7 +124,7 @@ export const createQuestion = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Question created successfully",
-      data: question,
+      data: { id: question.id },
     });
   } catch (error) {
     await t.rollback();
@@ -111,7 +132,7 @@ export const createQuestion = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to create question",
+      message: "Server error: Failed to create question",
     });
   }
 };
@@ -119,36 +140,54 @@ export const createQuestion = async (req, res) => {
 // Get all questions with optional filters
 export const getQuestions = async (req, res) => {
   try {
-    const { domain, difficulty, questionType } = req.query;
+    let {
+      domain,
+      difficulty,
+      questionType,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    domain = domain?.toLowerCase();
+    difficulty = difficulty?.toUpperCase();
+    questionType = questionType?.toUpperCase();
+
+    page = Math.max(parseInt(page, 10), 1);
+    limit = Math.min(parseInt(limit, 10), 100); // safety cap
+    const offset = (page - 1) * limit;
 
     const where = {};
     if (domain) where.domain = domain;
     if (difficulty) where.difficulty = difficulty;
     if (questionType) where.questionType = questionType;
 
-    const questions = await Question.findAll({
-      where,
-      include: [
-        {
-          model: Option,
-          as: "options",
-        },
-        {
-          model: NumericalAnswer,
-        },
-      ],
-    });
+    const { rows: questions, count: total } =
+      await Question.findAndCountAll({
+        where,
+        limit,
+        offset,
+        order: [["createdAt", "DESC"]],
+        include: [
+          { model: Option, as: "options" },
+          { model: NumericalAnswer, as: "numericalAnswer" },
+        ],
+      });
 
     return res.status(200).json({
       success: true,
-      count: questions.length,
+      pagination: {
+        totalItems: total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        limit,
+      },
       data: questions,
     });
   } catch (error) {
     console.error("Error fetching questions:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch questions",
+      message: "Server error: Failed to fetch questions",
     });
   }
 };
@@ -156,9 +195,21 @@ export const getQuestions = async (req, res) => {
 // Get a question by ID
 export const getQuestionById = async (req, res) => {
   try {
-    const question = await Question.findByPk(req.params.id);
+    const { id: questionId } = req.params;
 
-    if (!question) {
+    if (!questionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Question ID is required",
+      });
+    }
+
+    // First fetch only to determine questionType
+    const baseQuestion = await Question.findByPk(questionId, {
+      attributes: ["id", "questionType"],
+    });
+
+    if (!baseQuestion) {
       return res.status(404).json({
         success: false,
         message: "Question not found",
@@ -167,24 +218,28 @@ export const getQuestionById = async (req, res) => {
 
     const include = [];
 
-    if (question.questionType !== "NUMERICAL") {
+    if (baseQuestion.questionType !== "NUMERICAL") {
       include.push({ model: Option, as: "options" });
+    } else {
+      include.push({
+        model: NumericalAnswer,
+        as: "numericalAnswer",
+      });
     }
 
-    if (question.questionType === "NUMERICAL") {
-      include.push({ model: NumericalAnswer });
-    }
-
-    const fullQuestion = await Question.findByPk(req.params.id, { include });
+    const fullQuestion = await Question.findByPk(questionId, {
+      include,
+    });
 
     return res.status(200).json({
       success: true,
       data: fullQuestion,
     });
   } catch (error) {
+    console.error("Error fetching question by ID:", error.message);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch question",
+      message: "Server error: Failed to fetch question",
     });
   }
 };
@@ -259,11 +314,11 @@ export const updateQuestion = async (req, res) => {
     });
   } catch (error) {
     await t.rollback();
-    console.error("Error updating question:", error);
+    console.error("Error updating question:", error.message);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to update question",
+      message: "Server error: Failed to update question",
     });
   }
 };
@@ -284,9 +339,10 @@ export const deleteQuestion = async (req, res) => {
 
     return res.status(204).send();
   } catch (error) {
+    console.error("Error deleting question:", error.message);
     return res.status(500).json({
       success: false,
-      message: "Failed to delete question",
+      message: "Server error: Failed to delete question",
     });
   }
 };
