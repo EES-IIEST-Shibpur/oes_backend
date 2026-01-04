@@ -3,12 +3,11 @@ import {
     ExamAttempt,
     Question,
     Option,
-    NumericalAnswer,
-    StudentAnswer
+    StudentAnswer,
+    ExamQuestion
 } from "../association/index.js";
 
 import { getHardEndTime } from "../../utils/examTime.util.js";
-import { calculateExamScore } from "../../services/examScore.service.js";
 import { submitAttempt } from "../../services/examSubmission.service.js";
 
 //Auto-submit attempt helper function
@@ -34,6 +33,17 @@ export const startExam = async (req, res) => {
         if (now < exam.startTime || now > exam.endTime) {
             return res.status(400).json({ message: "Exam not active" });
         }
+
+        const existingAttempt = await ExamAttempt.findOne({
+            where: { examId, userId },
+        });
+
+        if (existingAttempt) {
+            return res.status(400).json({
+                message: "You have already attempted this exam",
+            });
+        }
+
 
         const attempt = await sequelize.transaction(async (t) => {
             return await ExamAttempt.create(
@@ -62,7 +72,7 @@ export const startExam = async (req, res) => {
     }
 };
 
-//Load exam questions for an active attempt
+//Load exam questions for an active attempt including saved answers
 export const getExamForAttempt = async (req, res) => {
     try {
         const { examId } = req.params;
@@ -80,7 +90,7 @@ export const getExamForAttempt = async (req, res) => {
             include: {
                 model: Question,
                 as: "questions",
-                attributes: ["id", "text", "type"],
+                attributes: ["id", "text", "type", "questionType"],
                 include: {
                     model: Option,
                     as: "options",
@@ -93,18 +103,43 @@ export const getExamForAttempt = async (req, res) => {
             order: [[{ model: Question, as: "questions" }, "questionOrder", "ASC"]],
         });
 
+        // Load any saved student answers for this attempt
+        const savedAnswers = await StudentAnswer.findAll({
+            where: { examAttemptId: attempt.id },
+        });
+
+        const answerMap = {};
+        savedAnswers.forEach(ans => {
+            answerMap[ans.questionId] = {
+                selectedOptionIds: ans.selectedOptionIds,
+                numericalAnswer: ans.numericalAnswer,
+            };
+        });
+
+        const questionsWithAnswers = exam.questions.map(q => ({
+            ...q.toJSON(),
+            studentAnswer: answerMap[q.id] || null,
+        }));
+
+        // Calculate remaining time
         const now = new Date();
         const hardEnd = getHardEndTime(exam, attempt);
+        const remainingSeconds = Math.max(0, Math.floor((hardEnd - now) / 1000));
 
-        const remainingSeconds = Math.max(
-            0,
-            Math.floor((hardEnd - now) / 1000)
-        );
+        if (remainingSeconds === 0) {
+            await autoSubmitAttempt(attempt);
+            return res.status(403).json({
+                message: "Time over. Exam auto-submitted.",
+            });
+        }
 
         res.status(200).json({
             success: true,
             message: "Exam loaded",
-            exam,
+            exam: {
+                ...exam.toJSON(),
+                questions: questionsWithAnswers,
+            },
             attemptId: attempt.id,
             remainingSeconds,
         });
@@ -148,6 +183,17 @@ export const saveAnswer = async (req, res) => {
             return res.status(404).json({ message: "Question not found" });
         }
 
+        const examQuestion = await ExamQuestion.findOne({
+            where: { examId, questionId },
+        });
+
+        if (!examQuestion) {
+            return res.status(400).json({
+                message: "Question does not belong to this exam",
+            });
+        }
+
+
         if (question.questionType === "SINGLE_CORRECT") {
             if (
                 Array.isArray(selectedOptionIds) &&
@@ -166,6 +212,10 @@ export const saveAnswer = async (req, res) => {
                     message: "Numerical answer is required for this question",
                 });
             }
+        }
+
+        if (question.questionType !== "NUMERICAL" && numericalAnswer !== undefined) {
+            return res.status(400).json({ message: "Invalid answer type" });
         }
 
         await StudentAnswer.upsert({
