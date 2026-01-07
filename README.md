@@ -143,27 +143,6 @@ A secure, refresh-safe, backend-driven Online Examination System designed to han
   * Last saved answers are evaluated
 * Frontend has **no control** over submission timing
 
----
-
-## Security Highlights
-
-* JWT-based authorization on all protected routes
-* Email verification required before login
-* Backend-enforced exam timing
-* No answer trust at submit time
-
----
-
-## Project Status
-
-Core backend features implemented
-
-This system is production-ready in terms of logic and flow, and can be extended with:
-
-* Proctoring
-* Negative marking
-* Analytics dashboard
-* Role-based access control
 
 ---
 
