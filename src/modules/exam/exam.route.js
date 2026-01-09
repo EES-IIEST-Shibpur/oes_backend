@@ -17,7 +17,7 @@ router.post('/create', createExam);
 router.get('/all', getExams);
 router.post('/:examId/questions', updateQuestionsToExam);
 router.get('/:examId', getExamById);
-router.put('/:examId/update', updateDraftExamDetails);
+router.put('/:examId/', updateDraftExamDetails);
 router.post('/:examId/publish', publishExam);
 router.delete('/:examId', deleteExam);
 
