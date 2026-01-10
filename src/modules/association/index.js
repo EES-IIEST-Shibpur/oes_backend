@@ -85,7 +85,7 @@ ExamQuestion.belongsTo(Question, {
   as: "question",
 });
 
-Exam.hasMany(ExamAttempt, { foreignKey: "examId" });
+Exam.hasMany(ExamAttempt, { foreignKey: "examId", as: "attempts" });
 ExamAttempt.belongsTo(Exam, { foreignKey: "examId" });
 
 User.hasMany(ExamAttempt, { foreignKey: "userId" });

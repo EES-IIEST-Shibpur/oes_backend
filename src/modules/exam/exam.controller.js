@@ -1,5 +1,5 @@
 import { fromUTC, toUTC } from "../../utils/dateTime.util.js";
-import { Exam, Question, ExamQuestion } from "../association/index.js";
+import { Exam, Question, ExamQuestion, ExamAttempt } from "../association/index.js";
 import sequelize from "../../config/db.js";
 import { Op } from "sequelize";
 
@@ -399,6 +399,7 @@ export const deleteExam = async (req, res) => {
 export const getLiveExams = async (req, res) => {
     try {
         const now = new Date(); // UTC
+        const userId = req.user?.userId;
 
         const exams = await Exam.findAll({
             where: {
@@ -415,11 +416,34 @@ export const getLiveExams = async (req, res) => {
                 "endTime",
                 "durationMinutes",
             ],
+            include: userId ? [{
+                model: ExamAttempt,
+                as: "attempts",
+                where: { userId },
+                required: false,
+                attributes: ["id", "status", "startedAt", "submittedAt"],
+            }] : [],
+        });
+
+        // Format the response to include attempt info
+        const formattedExams = exams.map(exam => {
+            const examData = exam.toJSON();
+            const attempt = examData.attempts && examData.attempts.length > 0 
+                ? examData.attempts[0] 
+                : null;
+            
+            return {
+                ...examData,
+                hasAttempt: !!attempt,
+                attemptStatus: attempt?.status || null,
+                attemptId: attempt?.id || null,
+                attempts: undefined, // Remove the attempts array from response
+            };
         });
 
         res.status(200).json({
             success: true,
-            exams,
+            exams: formattedExams,
         });
     } catch (error) {
         console.error("Error fetching live exams:", error.message);
