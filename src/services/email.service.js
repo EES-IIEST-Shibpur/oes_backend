@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { addEmailJob } from "./emailQueue.service.js";
 
 const SMTP_PORT = Number(process.env.SMTP_PORT);
 
@@ -23,6 +24,10 @@ export const verifyEmailTransporter = async () => {
     }
 };
 
+/**
+ * Send email directly (used by BullMQ worker)
+ * Internal function - use sendEmailQueued for API endpoints
+ */
 export const sendEmail = async ({ to, subject, html }) => {
     try {
         const info = await transporter.sendMail({
@@ -41,5 +46,34 @@ export const sendEmail = async ({ to, subject, html }) => {
         });
 
         throw new Error("Failed to send email");
+    }
+};
+
+/**
+ * Queue email for sending (recommended for API endpoints)
+ * Email will be processed asynchronously with automatic retries
+ */
+export const sendEmailQueued = async ({ to, subject, html }, options = {}) => {
+    try {
+        const job = await addEmailJob(to, subject, html, options);
+        return {
+            queued: true,
+            jobId: job.id,
+            message: "Email queued for sending",
+        };
+    } catch (error) {
+        console.error("Failed to queue email:", {
+            to,
+            subject,
+            error: error.message,
+        });
+
+        // Fallback: Try to send directly if queue fails
+        console.log("Attempting direct send as fallback...");
+        try {
+            return await sendEmail({ to, subject, html });
+        } catch (fallbackError) {
+            throw new Error("Failed to send email (queued and direct send failed)");
+        }
     }
 };

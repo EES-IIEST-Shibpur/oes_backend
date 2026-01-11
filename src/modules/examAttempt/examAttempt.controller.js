@@ -9,6 +9,7 @@ import {
 
 import { getHardEndTime } from "../../utils/examTime.util.js";
 import { submitAttempt } from "../../services/examSubmission.service.js";
+import { CACHE_KEYS, getOrSetCache } from "../../services/cache.service.js";
 import sequelize from "../../config/db.js";
 
 //Auto-submit attempt helper function
@@ -79,9 +80,16 @@ export const getExamForAttempt = async (req, res) => {
         const { examId } = req.params;
         const userId = req.user.userId;
 
-        const exam = await Exam.findByPk(examId, {
-            attributes: ["id", "title", "durationMinutes", "startTime", "endTime"],
-        });
+        const exam = await getOrSetCache(
+            CACHE_KEYS.EXAM(examId),
+            async () => {
+                const record = await Exam.findByPk(examId, {
+                    attributes: ["id", "title", "durationMinutes", "startTime", "endTime"],
+                });
+                return record ? record.toJSON() : null;
+            },
+            300 // 5 minutes to keep exam metadata reasonably fresh
+        );
 
         if (!exam) {
             return res.status(403).json({ message: "No exams exist" })
@@ -95,24 +103,49 @@ export const getExamForAttempt = async (req, res) => {
             return res.status(403).json({ message: "No active attempt" });
         }
 
-        const examQuestions = await ExamQuestion.findAll({
-            where: { examId },
-            order: [["questionOrder", "ASC"]],
-            include: [
-                {
-                    model: Question,
-                    as: "question",
-                    attributes: ["id", "statement", "questionType", "domain"],
+        const examQuestions = await getOrSetCache(
+            CACHE_KEYS.EXAM_QUESTIONS(examId),
+            async () => {
+                const rows = await ExamQuestion.findAll({
+                    where: { examId },
+                    order: [["questionOrder", "ASC"]],
                     include: [
                         {
-                            model: Option,
-                            as: "options",
-                            attributes: ["id", "text"],
+                            model: Question,
+                            as: "question",
+                            attributes: ["id", "statement", "questionType", "domain"],
+                            include: [
+                                {
+                                    model: Option,
+                                    as: "options",
+                                    attributes: ["id", "text"],
+                                },
+                            ],
                         },
                     ],
-                },
-            ],
-        });
+                });
+
+                return rows.map((eq) => ({
+                    id: eq.id,
+                    questionId: eq.questionId,
+                    questionOrder: eq.questionOrder,
+                    marksForEachQuestion: eq.marksForEachQuestion,
+                    question: eq.question
+                        ? {
+                            id: eq.question.id,
+                            statement: eq.question.statement,
+                            questionType: eq.question.questionType,
+                            domain: eq.question.domain,
+                            options: (eq.question.options || []).map((opt) => ({
+                                id: opt.id,
+                                text: opt.text,
+                            })),
+                        }
+                        : null,
+                }));
+            },
+            600 // 10 minutes cache for static exam paper data
+        );
 
         // Load any saved student answers for this attempt
         const savedAnswers = await StudentAnswer.findAll({
@@ -132,7 +165,7 @@ export const getExamForAttempt = async (req, res) => {
             questionOrder: eq.questionOrder,
             marks: eq.marksForEachQuestion,
 
-            ...eq.question.toJSON(),
+            ...(eq.question || {}),
 
             studentAnswer: answerMap[eq.questionId] || null,
         }));
