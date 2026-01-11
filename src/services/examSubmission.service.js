@@ -1,47 +1,46 @@
 import sequelize from "../config/db.js";
-import {
-    ExamAttempt,
-    StudentAnswer,
-    Question,
-    Option,
-    NumericalAnswer
-} from "../modules/association/index.js";
-import { calculateExamScore } from "./examScore.service.js";
+import { ExamAttempt } from "../modules/association/index.js";
+import { addScoreCalculationJob } from "./scoreCalculationQueue.service.js";
 
 /**
  * Submit an exam attempt (manual or auto)
+ * Only changes the status and queues score calculation
  * @param {Object} attempt - ExamAttempt instance
  * @param {String} submitType - SUBMITTED | AUTO_SUBMITTED
+ * @returns {Promise<Object>} - Updated attempt and job
  */
 export const submitAttempt = async (attempt, submitType) => {
     return await sequelize.transaction(async (t) => {
         await attempt.reload({ transaction: t, lock: t.LOCK.UPDATE });
 
         if (attempt.status !== "IN_PROGRESS") {
-            return attempt; // already submitted
+            return { attempt, job: null, alreadySubmitted: true }; // already submitted
         }
 
-        const answers = await StudentAnswer.findAll({
-            where: { examAttemptId: attempt.id },
-            include: {
-                model: Question,
-                include: [
-                    { model: Option, as: "options" },
-                    { model: NumericalAnswer },
-                ],
-            },
-            transaction: t,
-            lock: t.LOCK.UPDATE,
-        });
-
-        const score = await calculateExamScore(answers, t);
-
+        // Update status and submission time
         attempt.status = submitType;
         attempt.submittedAt = new Date();
-        attempt.score = score;
 
         await attempt.save({ transaction: t });
 
-        return attempt;
+        return { attempt, job: null, alreadySubmitted: false };
     });
+};
+
+/**
+ * Submit attempt and queue score calculation
+ * @param {Object} attempt - ExamAttempt instance
+ * @param {String} submitType - SUBMITTED | AUTO_SUBMITTED
+ * @returns {Promise<Object>} - Updated attempt and queued job
+ */
+export const submitAttemptAndQueueScore = async (attempt, submitType) => {
+    const result = await submitAttempt(attempt, submitType);
+    
+    if (!result.alreadySubmitted) {
+        // Queue score calculation after submission
+        const job = await addScoreCalculationJob(attempt.id);
+        result.job = job;
+    }
+    
+    return result;
 };

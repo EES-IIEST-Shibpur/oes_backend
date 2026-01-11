@@ -18,7 +18,6 @@ const transporter = nodemailer.createTransport({
 export const verifyEmailTransporter = async () => {
     try {
         await transporter.verify();
-        console.log("SMTP server is ready to send emails");
     } catch (error) {
         console.error("SMTP configuration error:", error.message);
     }

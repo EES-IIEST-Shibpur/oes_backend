@@ -3,6 +3,7 @@ import sequelize from "./config/db.js";
 import { verifyEmailTransporter } from "./services/email.service.js";
 import { initializeRedis, closeRedis } from "./config/redis.js";
 import { initializeEmailQueue, closeEmailQueue } from "./services/emailQueue.service.js";
+import { initializeScoreQueue, closeScoreQueue } from "./services/scoreCalculationQueue.service.js";
 
 const PORT = process.env.PORT || 8000;
 
@@ -15,6 +16,10 @@ const startServer = async () => {
         // Email Queue (depends on Redis)
         await initializeEmailQueue();
         console.log("Email queue initialized");
+
+        // Score Calculation Queue (depends on Redis)
+        await initializeScoreQueue();
+        console.log("Score calculation queue initialized");
 
         // Database
         await sequelize.authenticate();
@@ -34,6 +39,7 @@ const startServer = async () => {
         process.on("SIGINT", async () => {
             console.log("Shutting down gracefully...");
             server.close(async () => {
+                await closeScoreQueue();
                 await closeEmailQueue();
                 await closeRedis();
                 await sequelize.close();
@@ -45,6 +51,7 @@ const startServer = async () => {
         process.on("SIGTERM", async () => {
             console.log("SIGTERM received, shutting down...");
             server.close(async () => {
+                await closeScoreQueue();
                 await closeEmailQueue();
                 await closeRedis();
                 await sequelize.close();
