@@ -7,7 +7,7 @@ export const getMyProfile = async (req, res) => {
     const userId = req.user.userId;
 
     const user = await User.findByPk(userId, {
-      attributes: ["id", "fullName", "email"],
+      attributes: ["id", "fullName", "email", "emailVerified"],
       include: [
         {
           model: UserProfile,
@@ -25,15 +25,26 @@ export const getMyProfile = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({
+        message: "User not found"
+      });
     }
 
-    return res.json(user);
+    return res.status(200).json({
+      message: "Profile retrieved successfully",
+      data: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        emailVerified: user.emailVerified,
+        profile: user.profile || null,
+        profileComplete: !!user.profile && user.profile.enrollmentNumber,
+      }
+    });
   } catch (error) {
     console.error("Get profile error:", error);
     return res.status(500).json({
-      success: false,
-      message: "Server error: Failed to fetch profile"
+      message: "Failed to fetch profile. Please try again later."
     });
   }
 };
@@ -55,6 +66,50 @@ export const updateMyProfile = async (req, res) => {
       enrollmentNumber,
     } = req.body;
 
+    // Validate required fields
+    if (!fullName || !fullName.trim()) {
+      return res.status(400).json({
+        message: "Full name is required"
+      });
+    }
+
+    if (!course) {
+      return res.status(400).json({
+        message: "Course is required"
+      });
+    }
+
+    if (!department) {
+      return res.status(400).json({
+        message: "Department is required"
+      });
+    }
+
+    if (!year) {
+      return res.status(400).json({
+        message: "Year is required"
+      });
+    }
+
+    if (!semester) {
+      return res.status(400).json({
+        message: "Semester is required"
+      });
+    }
+
+    if (!enrollmentNumber || !enrollmentNumber.trim()) {
+      return res.status(400).json({
+        message: "Enrollment number is required"
+      });
+    }
+
+    // Validate enrollment number format
+    if (enrollmentNumber.length < 3) {
+      return res.status(400).json({
+        message: "Enrollment number must be at least 3 characters"
+      });
+    }
+
     const user = await User.findByPk(userId, {
       transaction,
       lock: {
@@ -64,11 +119,28 @@ export const updateMyProfile = async (req, res) => {
     });
 
     if (!user) {
-      throw new Error("User not found");
+      await transaction.rollback();
+      return res.status(404).json({
+        message: "User not found"
+      });
     }
 
-    if (fullName !== undefined) {
-      user.fullName = fullName;
+    // Check if enrollment number is already taken by another user
+    const existingEnrollment = await UserProfile.findOne({
+      where: { enrollmentNumber },
+      transaction,
+    });
+
+    if (existingEnrollment && existingEnrollment.userId !== userId) {
+      await transaction.rollback();
+      return res.status(409).json({
+        message: "This enrollment number is already registered. Please use a different one."
+      });
+    }
+
+    // Update user full name
+    if (fullName) {
+      user.fullName = fullName.trim();
       await user.save({ transaction });
     }
 
@@ -80,27 +152,23 @@ export const updateMyProfile = async (req, res) => {
     if (profile) {
       await profile.update(
         {
-          ...(course !== undefined && { course }),
-          ...(department !== undefined && { department }),
-          ...(year !== undefined && { year }),
-          ...(semester !== undefined && { semester }),
-          ...(enrollmentNumber !== undefined && { enrollmentNumber }),
+          course,
+          department,
+          year,
+          semester,
+          enrollmentNumber: enrollmentNumber.trim(),
         },
         { transaction }
       );
     } else {
-      if (!enrollmentNumber) {
-        throw new Error("Enrollment number is required");
-      }
-
       await UserProfile.create(
         {
           userId,
-          enrollmentNumber,
-          ...(course !== undefined && { course }),
-          ...(department !== undefined && { department }),
-          ...(year !== undefined && { year }),
-          ...(semester !== undefined && { semester }),
+          enrollmentNumber: enrollmentNumber.trim(),
+          course,
+          department,
+          year,
+          semester,
         },
         { transaction }
       );
@@ -108,9 +176,34 @@ export const updateMyProfile = async (req, res) => {
 
     await transaction.commit();
 
-    return res.json({
-      success: true,
+    // Fetch updated profile
+    const updatedUser = await User.findByPk(userId, {
+      attributes: ["id", "fullName", "email", "emailVerified"],
+      include: [
+        {
+          model: UserProfile,
+          as: "profile",
+          attributes: [
+            "enrollmentNumber",
+            "course",
+            "department",
+            "year",
+            "semester",
+          ],
+        },
+      ],
+    });
+
+    return res.status(200).json({
       message: "Profile updated successfully",
+      data: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        emailVerified: updatedUser.emailVerified,
+        profile: updatedUser.profile,
+        profileComplete: true,
+      }
     });
   } catch (error) {
     if (transaction) await transaction.rollback();
@@ -118,8 +211,7 @@ export const updateMyProfile = async (req, res) => {
     console.error("Update profile error:", error);
 
     return res.status(500).json({
-      success: false,
-      message: "Server error: Failed to update profile",
+      message: "Failed to update profile. Please try again later."
     });
   }
 };
