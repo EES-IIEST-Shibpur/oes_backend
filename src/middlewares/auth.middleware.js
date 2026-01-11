@@ -1,13 +1,19 @@
 import { verifyToken } from "../services/token.service.js";
 
 export const requireAuth = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  // Check for token in cookies first, fallback to Authorization header for backward compatibility
+  let token = req.cookies?.accessToken;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized" });
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
   }
 
-  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
 
   try {
     const decoded = verifyToken(token, process.env.JWT_ACCESS_SECRET);

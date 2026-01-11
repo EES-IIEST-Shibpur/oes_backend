@@ -262,6 +262,15 @@ export const login = async (req, res) => {
 
         const accessToken = generateAccessToken(user);
 
+        // Set httpOnly cookie for security
+        const isProduction = process.env.NODE_ENV === "production";
+        res.cookie("accessToken", accessToken, {
+            httpOnly: true, // Prevents JavaScript access
+            secure: isProduction, // HTTPS only in production
+            sameSite: isProduction ? "none" : "lax", // CSRF protection
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+
         return res.status(200).json({
             message: "Login successful",
             user: {
@@ -270,6 +279,7 @@ export const login = async (req, res) => {
                 fullName: user.fullName,
                 role: user.role,
             },
+            // Still send accessToken in response for backward compatibility
             accessToken,
         });
     } catch (error) {
@@ -501,6 +511,27 @@ export const changePassword = async (req, res) => {
         console.error("Change password error:", error);
         return res.status(500).json({
             message: "Server error: change password",
+        });
+    }
+};
+
+// Logout Controller
+export const logout = async (req, res) => {
+    try {
+        // Clear the accessToken cookie
+        res.clearCookie("accessToken", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        });
+
+        return res.status(200).json({
+            message: "Logout successful",
+        });
+    } catch (error) {
+        console.error("Logout error:", error);
+        return res.status(500).json({
+            message: "Logout failed",
         });
     }
 };
