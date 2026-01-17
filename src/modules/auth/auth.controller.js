@@ -264,12 +264,20 @@ export const login = async (req, res) => {
 
         // Set httpOnly cookie for security
         const isProduction = process.env.NODE_ENV === "production";
-        res.cookie("accessToken", accessToken, {
+        const cookieOptions = {
             httpOnly: true, // Prevents JavaScript access
             secure: isProduction, // HTTPS only in production
             sameSite: isProduction ? "none" : "lax", // CSRF protection
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        });
+            path: "/", // Available across all paths
+        };
+        
+        // Add domain in production if configured
+        if (isProduction && process.env.COOKIE_DOMAIN) {
+            cookieOptions.domain = process.env.COOKIE_DOMAIN;
+        }
+        
+        res.cookie("accessToken", accessToken, cookieOptions);
 
         return res.status(200).json({
             message: "Login successful",
@@ -518,12 +526,20 @@ export const changePassword = async (req, res) => {
 // Logout Controller
 export const logout = async (req, res) => {
     try {
-        // Clear the accessToken cookie
-        res.clearCookie("accessToken", {
+        // Clear the accessToken cookie with same options as when it was set
+        const isProduction = process.env.NODE_ENV === "production";
+        const cookieOptions = {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        });
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
+            path: "/",
+        };
+        
+        if (isProduction && process.env.COOKIE_DOMAIN) {
+            cookieOptions.domain = process.env.COOKIE_DOMAIN;
+        }
+        
+        res.clearCookie("accessToken", cookieOptions);
 
         return res.status(200).json({
             message: "Logout successful",
