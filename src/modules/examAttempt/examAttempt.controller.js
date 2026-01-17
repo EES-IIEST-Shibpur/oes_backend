@@ -7,7 +7,7 @@ import {
     ExamQuestion
 } from "../association/index.js";
 
-import { submitAttemptAndQueueScore } from "../../services/examSubmission.service.js";
+import { submitExamWithoutScore } from "../../services/examSubmission.service.js";
 import { CACHE_KEYS, getOrSetCache } from "../../services/cache.service.js";
 import sequelize from "../../config/db.js";
 import { addScoreCalculationJob } from "../../services/scoreCalculationQueue.service.js";
@@ -18,7 +18,7 @@ const autoSubmitAttempt = async (attempt) => {
     attempt.status = "AUTO_SUBMITTED";
     attempt.submittedAt = new Date();
     await attempt.save();
-    
+
     // Queue score calculation
     await addScoreCalculationJob(attempt.id);
 };
@@ -309,22 +309,41 @@ export const submitExam = async (req, res) => {
 
         const attempt = await ExamAttempt.findOne({
             where: { examId, userId, status: "IN_PROGRESS" },
+            include: Exam,
         });
 
         if (!attempt) {
             return res.status(400).json({ message: "No active attempt" });
         }
 
-        // Submit attempt and queue score calculation
-        const result = await submitAttemptAndQueueScore(attempt, "SUBMITTED");
+        // Check if time is still valid
+        const hardEnd = getHardEndTime(attempt.Exam, attempt);
+        if (new Date() > hardEnd) {
+            await autoSubmitAttempt(attempt);
+            return res.status(403).json({
+                message: "Time over. Exam auto-submitted.",
+            });
+        }
+
+        // Submit exam without score calculation
+        await submitExamWithoutScore(attempt.id, "SUBMITTED");
 
         res.status(200).json({
-            message: "Exam submitted successfully. Score calculation in progress.",
+            success: true,
+            message: "Exam submitted successfully",
             attemptId: attempt.id,
-            status: attempt.status,
+            status: "SUBMITTED",
         });
     } catch (error) {
         console.error(error.message);
+
+        if (error.message === "Attempt already submitted") {
+            return res.status(400).json({
+                success: false,
+                message: "Exam already submitted",
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: "Server Error: Unable to submit exam",
