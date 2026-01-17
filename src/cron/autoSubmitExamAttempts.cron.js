@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { Exam, ExamAttempt } from "../modules/association/index.js";
 import { getHardEndTime } from "../utils/examTime.util.js";
-import { addScoreCalculationJob } from "../services/scoreCalculationQueue.service.js";
+import { calculateExamScore } from "../services/examScore.service.js";
 
 // Cron job to auto-submit overdue exam attempts every minute
 cron.schedule("*/1 * * * *", async () => {
@@ -26,15 +26,15 @@ cron.schedule("*/1 * * * *", async () => {
           `Auto-submitted attempt ${attempt.id} (exam ${attempt.examId})`
         );
 
-        // Queue score calculation
+        // Calculate score immediately
         try {
-          await addScoreCalculationJob(attempt.id);
+          await calculateExamScore(attempt.examId, attempt.userId);
           console.log(
-            `Score calculation queued for attempt ${attempt.id}`
+            `Score calculated for attempt ${attempt.id}`
           );
         } catch (error) {
           console.error(
-            `Failed to queue score calculation for attempt ${attempt.id}:`,
+            `Failed to calculate score for attempt ${attempt.id}:`,
             error.message
           );
         }
