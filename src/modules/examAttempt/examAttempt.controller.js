@@ -7,10 +7,9 @@ import {
     ExamQuestion
 } from "../association/index.js";
 
-import { submitExamWithoutScore } from "../../services/examSubmission.service.js";
 import { CACHE_KEYS, getOrSetCache } from "../../services/cache.service.js";
 import sequelize from "../../config/db.js";
-import { addScoreCalculationJob } from "../../services/scoreCalculationQueue.service.js";
+import { calculateExamScore } from "../../services/examScore.service.js";
 import { getHardEndTime } from "../../utils/examTime.util.js";
 
 //Auto-submit attempt helper function
@@ -19,8 +18,13 @@ const autoSubmitAttempt = async (attempt) => {
     attempt.submittedAt = new Date();
     await attempt.save();
 
-    // Queue score calculation
-    await addScoreCalculationJob(attempt.id);
+    // Calculate score immediately (with error handling)
+    try {
+        await calculateExamScore(attempt.examId, attempt.userId);
+    } catch (error) {
+        console.error("Error calculating score in auto-submit:", error);
+        // Don't throw - submission already happened
+    }
 };
 
 //Start exam
@@ -325,12 +329,32 @@ export const submitExam = async (req, res) => {
             });
         }
 
-        // Submit exam without score calculation
-        await submitExamWithoutScore(attempt.id, "SUBMITTED");
+        // Submit exam with transaction for atomicity
+        await sequelize.transaction(async (t) => {
+            // Re-fetch with lock to prevent race conditions
+            const lockedAttempt = await ExamAttempt.findOne({
+                where: { id: attempt.id },
+                transaction: t,
+                lock: t.LOCK.UPDATE,
+            });
+
+            if (lockedAttempt.status !== "IN_PROGRESS") {
+                throw new Error("Attempt already submitted");
+            }
+
+            lockedAttempt.status = "SUBMITTED";
+            lockedAttempt.submittedAt = new Date();
+            await lockedAttempt.save({ transaction: t });
+        });
+
+        // Calculate score asynchronously (don't block response)
+        calculateExamScore(examId, userId).catch(error => {
+            console.error("Error calculating score after submission:", error);
+        });
 
         res.status(200).json({
             success: true,
-            message: "Exam submitted successfully",
+            message: "Exam submitted successfully. Score will be shown after window time ends.",
             attemptId: attempt.id,
             status: "SUBMITTED",
         });
