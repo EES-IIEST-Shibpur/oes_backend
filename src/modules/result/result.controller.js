@@ -1,4 +1,5 @@
-import { Exam, ExamAttempt, Question, Option, StudentAnswer, NumericalAnswer } from "../association/index.js";
+import { Exam, ExamAttempt, Question, Option, StudentAnswer, NumericalAnswer, User } from "../association/index.js";
+import { calculateExamScore } from "../../services/examScore.service.js";
 
 // Get all my attempted exams (list view)
 export const getMyAttempts = async (req, res) => {
@@ -179,6 +180,45 @@ export const getMyResult = async (req, res) => {
         console.error(error.message);
         res.status(500).json({
             message: "Server error: Unable to fetch result"
+        });
+    }
+};
+
+export const dummyResultCalculator = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const examId = req.params.examId;
+
+        // Call service with all validations handled inside
+        const result = await calculateExamScore(examId, userId);
+
+        if (!result.success) {
+            // Map error types to appropriate HTTP status codes
+            const statusCodes = {
+                NOT_FOUND: 404,
+                NOT_SUBMITTED: 400,
+                NO_QUESTIONS: 404,
+                SERVER_ERROR: 500,
+            };
+
+            const statusCode = statusCodes[result.error] || 500;
+            return res.status(statusCode).json({
+                message: result.message,
+                error: result.error,
+            });
+        }
+
+        // Success response
+        res.status(200).json({
+            message: result.message,
+            ...result.data,
+            alreadyCalculated: result.alreadyCalculated,
+        });
+
+    } catch (error) {
+        console.error("Error in dummyResultCalculator:", error);
+        res.status(500).json({
+            message: "Server error: Unable to calculate result",
         });
     }
 };

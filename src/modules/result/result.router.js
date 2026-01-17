@@ -1,5 +1,5 @@
 import express from "express";
-import { getMyResult, getMyAttempts } from "./result.controller.js";
+import { getMyResult, getMyAttempts, dummyResultCalculator } from "./result.controller.js";
 import { requireAuth, requireEmailVerified } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -12,5 +12,7 @@ router.get("/", getMyAttempts);
 
 // Get result for specific exam
 router.get("/:examId", getMyResult);
+
+router.get("/:examId/dummy/test", dummyResultCalculator);
 
 export default router;
