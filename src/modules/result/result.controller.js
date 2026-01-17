@@ -1,4 +1,4 @@
-import { Exam, ExamAttempt, Question, Option, StudentAnswer, NumericalAnswer, User } from "../association/index.js";
+import { Exam, ExamAttempt, Question, Option, StudentAnswer, NumericalAnswer, User, ExamQuestion } from "../association/index.js";
 import { calculateExamScore } from "../../services/examScore.service.js";
 
 // Get all my attempted exams (list view)
@@ -55,73 +55,141 @@ export const getMyAttempts = async (req, res) => {
     }
 };
 
-// Get my result (detail view for specific exam)
-export const getMyResult = async (req, res) => {
+// Get score only (simple view)
+export const getMyScore = async (req, res) => {
     try {
         const { examId } = req.params;
         const userId = req.user.userId;
 
-        // Fetch exam details
-        const exam = await Exam.findByPk(examId);
-        if (!exam) {
-            return res.status(404).json({ message: "Exam not found" });
-        }
-
-        if (new Date() < exam.endTime) {
-            return res.status(403).json({
-                message: "Results will be available after exam ends",
-            });
-        }
-
-        // Fetch exam attempt with score
         const attempt = await ExamAttempt.findOne({
             where: { examId, userId },
-            attributes: ["id", "examId", "userId", "score", "status", "submittedAt", "startedAt"],
+            include: [
+                {
+                    model: Exam,
+                    attributes: ["id", "title", "endTime"]
+                }
+            ],
+            attributes: ["id", "examId", "score", "status", "submittedAt", "startedAt"],
         });
 
         if (!attempt) {
             return res.status(404).json({ message: "No attempt found" });
         }
 
-        // Check if attempt is completed
         if (attempt.status === "IN_PROGRESS") {
             return res.status(400).json({ message: "Exam not yet submitted" });
         }
 
-        // Fetch all questions for this exam with student answers
-        const questions = await Question.findAll({
+        // Check if results are available
+        if (new Date() < attempt.Exam.endTime) {
+            return res.status(403).json({
+                message: "Results will be available after exam ends",
+            });
+        }
+
+        // Check if score is calculated
+        if (attempt.score === null) {
+            return res.status(202).json({
+                message: "Score calculation in progress. Please check back later.",
+                attemptId: attempt.id,
+                status: attempt.status,
+            });
+        }
+
+        res.status(200).json({
+            attemptId: attempt.id,
+            examId,
+            examTitle: attempt.Exam.title,
+            score: attempt.score,
+            status: attempt.status,
+            submittedAt: attempt.submittedAt,
+        });
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({
+            message: "Server error: Unable to fetch score"
+        });
+    }
+};
+
+// Get detailed result with analysis (includes questions, answers, correct answers)
+export const getMyResult = async (req, res) => {
+    try {
+        const { examId } = req.params;
+        const userId = req.user.userId;
+
+        // Fetch exam attempt
+        const attempt = await ExamAttempt.findOne({
+            where: { examId, userId },
             include: [
                 {
                     model: Exam,
-                    as: "exams",
-                    where: { id: examId },
-                    attributes: [],
-                    through: { attributes: [] },
-                },
-                {
-                    model: Option,
-                    as: "options",
-                    attributes: ["id", "text", "isCorrect"],
-                },
-                {
-                    model: NumericalAnswer,
-                    attributes: ["value", "tolerance"],
-                },
-                {
-                    model: StudentAnswer,
-                    where: { examAttemptId: attempt.id },
-                    required: false,
-                    attributes: ["selectedOptionIds", "numericalAnswer", "marksObtained"],
-                },
+                    attributes: ["id", "title", "durationMinutes", "endTime"]
+                }
             ],
-            attributes: ["id", "text", "questionType", "marks", "negativeMarks"],
-            order: [["createdAt", "ASC"]],
         });
 
+        if (!attempt) {
+            return res.status(404).json({ message: "No attempt found" });
+        }
+
+        if (attempt.status === "IN_PROGRESS") {
+            return res.status(400).json({ message: "Exam not yet submitted" });
+        }
+
+        // Check if results are available
+        if (new Date() < attempt.Exam.endTime) {
+            return res.status(403).json({
+                message: "Results will be available after exam ends",
+            });
+        }
+
+        // Check if score is calculated
+        if (attempt.score === null) {
+            return res.status(202).json({
+                message: "Score calculation in progress. Please check back later.",
+                attemptId: attempt.id,
+                status: attempt.status,
+            });
+        }
+
+        // Fetch all exam questions with details
+        const examQuestions = await ExamQuestion.findAll({
+            where: { examId },
+            include: [
+                {
+                    model: Question,
+                    as: "question",
+                    include: [
+                        {
+                            model: Option,
+                            as: "options",
+                            attributes: ["id", "text", "isCorrect"],
+                        },
+                        {
+                            model: NumericalAnswer,
+                            as: "numericalAnswer",
+                            attributes: ["value", "tolerance"],
+                        }
+                    ],
+                }
+            ],
+            order: [["questionOrder", "ASC"]],
+        });
+
+        // Fetch student answers
+        const studentAnswers = await StudentAnswer.findAll({
+            where: { examAttemptId: attempt.id },
+        });
+
+        const answerMap = new Map(
+            studentAnswers.map(ans => [ans.questionId, ans])
+        );
+
         // Format questions with student answers and correct answers
-        const formattedQuestions = questions.map(q => {
-            const question = q.toJSON();
-            const studentAnswer = question.StudentAnswers?.[0] || null;
+        const formattedQuestions = examQuestions.map(eq => {
+            const question = eq.question;
+            const studentAnswer = answerMap.get(question.id);
 
             let correctAnswer = null;
 
@@ -141,31 +209,37 @@ export const getMyResult = async (req, res) => {
 
             return {
                 questionId: question.id,
-                text: question.text,
+                questionOrder: eq.questionOrder,
+                statement: question.statement,
                 questionType: question.questionType,
-                marks: question.marks,
+                marks: eq.marksForEachQuestion,
                 negativeMarks: question.negativeMarks,
                 options: question.questionType !== "NUMERICAL" ? question.options.map(opt => ({
                     id: opt.id,
                     text: opt.text,
+                    isCorrect: opt.isCorrect,
                 })) : [],
                 studentAnswer: studentAnswer ? {
                     selectedOptionIds: studentAnswer.selectedOptionIds || null,
                     numericalAnswer: studentAnswer.numericalAnswer || null,
                     marksObtained: studentAnswer.marksObtained,
-                } : null,
+                } : {
+                    selectedOptionIds: null,
+                    numericalAnswer: null,
+                    marksObtained: 0,
+                },
                 correctAnswer,
             };
         });
 
-        const totalQuestions = questions.length;
-        const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
+        const totalQuestions = examQuestions.length;
+        const totalMarks = examQuestions.reduce((sum, eq) => sum + eq.marksForEachQuestion, 0);
         const percentage = totalMarks > 0 ? Math.round((attempt.score / totalMarks) * 100) : 0;
 
         res.status(200).json({
             attemptId: attempt.id,
             examId,
-            examTitle: exam.title,
+            examTitle: attempt.Exam.title,
             score: attempt.score,
             totalQuestions,
             totalMarks,
@@ -173,7 +247,7 @@ export const getMyResult = async (req, res) => {
             status: attempt.status,
             submittedAt: attempt.submittedAt,
             startedAt: attempt.startedAt,
-            durationMinutes: exam.durationMinutes,
+            durationMinutes: attempt.Exam.durationMinutes,
             questions: formattedQuestions,
         });
     } catch (error) {
