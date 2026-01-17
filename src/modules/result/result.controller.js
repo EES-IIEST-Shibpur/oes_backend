@@ -11,7 +11,7 @@ export const getMyAttempts = async (req, res) => {
             include: [
                 {
                     model: Exam,
-                    attributes: ["id", "title", "durationMinutes"],
+                    attributes: ["id", "title", "durationMinutes", "endTime"],
                 }
             ],
             attributes: ["id", "examId", "score", "status", "submittedAt", "startedAt"],
@@ -29,8 +29,8 @@ export const getMyAttempts = async (req, res) => {
         // Enrich with exam details and calculate percentage
         const enrichedAttempts = attempts.map(attempt => {
             const exam = attempt.Exam;
-            // Get total questions for this exam - approximate from score calculation
-            // In real scenario, you'd store totalQuestions in exam or question_count
+            const isResultAvailable = new Date() >= new Date(exam.endTime);
+            
             return {
                 attemptId: attempt.id,
                 examId: attempt.examId,
@@ -40,6 +40,8 @@ export const getMyAttempts = async (req, res) => {
                 submittedAt: attempt.submittedAt,
                 startedAt: attempt.startedAt,
                 durationMinutes: exam.durationMinutes,
+                endTime: exam.endTime,
+                isResultAvailable,
             };
         });
 
