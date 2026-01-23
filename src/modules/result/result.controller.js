@@ -1,4 +1,4 @@
-import { Exam, ExamAttempt, Question, Option, StudentAnswer, NumericalAnswer, User, ExamQuestion } from "../association/index.js";
+import { Exam, ExamAttempt, Question, Option, StudentAnswer, NumericalAnswer, ExamQuestion } from "../association/index.js";
 import { calculateExamScore } from "../../services/examScore.service.js";
 
 // Get all my attempted exams (list view)
@@ -30,7 +30,7 @@ export const getMyAttempts = async (req, res) => {
         const enrichedAttempts = attempts.map(attempt => {
             const exam = attempt.Exam;
             const isResultAvailable = new Date() >= new Date(exam.endTime);
-            
+
             return {
                 attemptId: attempt.id,
                 examId: attempt.examId,
