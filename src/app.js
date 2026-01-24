@@ -14,8 +14,21 @@ if (process.env.NODE_ENV === "production") {
 }
 
 // CORS configuration to allow credentials
+const origins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(",").map(x => x.trim())
+    : [];
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: function (origin, callback) {
+        // Allow server-to-server or tools like Postman
+        if (!origin) return callback(null, true);
+
+        if (origins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(null, false);
+    },
     credentials: true,
 }));
 
