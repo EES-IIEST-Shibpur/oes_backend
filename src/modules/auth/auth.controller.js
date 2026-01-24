@@ -265,14 +265,14 @@ export const login = async (req, res) => {
         // Set httpOnly cookie for security
         const isProduction = process.env.NODE_ENV === "production";
         const cookieOptions = {
-            httpOnly: true, // Prevents JavaScript access
+            httpOnly: true, // Prevents JavaScript access - critical for security
             secure: isProduction, // HTTPS only in production
-            sameSite: isProduction ? "none" : "lax", // CSRF protection
+            sameSite: isProduction ? "none" : "lax", // CSRF protection, "none" required for cross-site cookies
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             path: "/", // Available across all paths
         };
         
-        // Add domain in production if configured
+        // Add domain in production if configured (e.g., .eesiiests.org for subdomain sharing)
         if (isProduction && process.env.COOKIE_DOMAIN) {
             cookieOptions.domain = process.env.COOKIE_DOMAIN;
         }
