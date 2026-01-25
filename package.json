@@ -7,7 +7,10 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/scripts/seed.js",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "start:dev": "set \"NODE_ENV=development\" && node src/server.js",
+    "start:prod": "set \"NODE_ENV=production\" && node src/server.js",
+    "start:test": "set \"NODE_ENV=test\" && node src/server.js"
   },
   "keywords": [],
   "author": "",
@@ -26,10 +29,12 @@
     "luxon": "^3.7.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.12",
+    "path": "^0.12.7",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
     "redis": "^5.10.0",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "url": "^0.11.4"
   },
   "devDependencies": {
     "jest": "^30.2.0",

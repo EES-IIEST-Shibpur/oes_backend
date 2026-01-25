@@ -143,6 +143,62 @@ A secure, refresh-safe, backend-driven Online Examination System designed to han
   * Last saved answers are evaluated
 * Frontend has **no control** over submission timing
 
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (v18 or higher)
+- PostgreSQL
+- Redis (optional, can be disabled)
+
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up environment files:
+   ```bash
+   # Copy example to create your development config
+   cp .env.example .env.development
+   ```
+
+4. Update `.env.development` with your database and service credentials
+
+5. Run database migrations (if applicable) or seed data:
+   ```bash
+   npm run seed
+   ```
+
+### Running the Application
+
+```bash
+# Development mode (auto-reload)
+npm run dev
+
+# Production mode
+npm start
+
+# Run tests
+npm test
+```
+
+**Note:** `NODE_ENV` is automatically set by npm scripts. See [Environment Configuration](docs/ENVIRONMENT_CONFIG.md) for details.
+
+### Configuration
+
+The application uses environment-specific configuration files:
+- `.env.development` - Local development
+- `.env.test` - Testing environment
+- `.env.production` - Production deployment
+
+For detailed configuration options, see [Environment Configuration Guide](docs/ENVIRONMENT_CONFIG.md).
+
+For modular architecture details, see [Modular Architecture Guide](docs/MODULAR_ARCHITECTURE.md).
 
 ---
 

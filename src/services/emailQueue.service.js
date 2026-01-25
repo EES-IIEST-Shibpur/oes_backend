@@ -1,14 +1,22 @@
 import { Queue, Worker } from "bullmq";
-import { getRedisClient } from "../config/redis.js";
+import { getRedisClient, isRedisInitialized } from "../config/redis.js";
 import { sendEmail } from "./email.service.js";
 
 let emailQueue = null;
 let emailWorker = null;
+let isInitialized = false;
 
 /**
  * Initialize the email queue and worker
  */
 export const initializeEmailQueue = async () => {
+    if (isInitialized) {
+        return { emailQueue, emailWorker };
+    }
+
+    if (!isRedisInitialized()) {
+        throw new Error("Redis must be initialized before email queue");
+    }
     try {
         const redis = getRedisClient();
 
@@ -72,12 +80,18 @@ export const initializeEmailQueue = async () => {
         });
 
         console.log("Email queue and worker initialized");
+        isInitialized = true;
         return { emailQueue, emailWorker };
     } catch (error) {
         console.error("Failed to initialize email queue:", error.message);
         throw error;
     }
 };
+
+/**
+ * Check if email queue is initialized
+ */
+export const isEmailQueueInitialized = () => isInitialized;
 
 /**
  * Get the email queue instance

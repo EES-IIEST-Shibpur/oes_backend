@@ -1,3 +1,8 @@
+import { loadEnvironment } from "../config/env.js";
+
+// Load environment first
+loadEnvironment();
+
 import bcrypt from "bcrypt";
 import sequelize from "../config/db.js";
 import { User, UserProfile, Exam, Question, Option, NumericalAnswer, ExamQuestion, ExamAttempt, StudentAnswer } from "../modules/association/index.js";

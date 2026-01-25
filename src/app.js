@@ -1,11 +1,8 @@
 import express from "express";
 import apiRoutes from "./routes/index.js";
-import "./modules/association/index.js";
-import "./cron/autoSubmitExamAttempts.cron.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { accessLogger } from "./middlewares/apiLogger.middleware.js";
-
 
 const app = express();
 

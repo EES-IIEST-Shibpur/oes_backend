@@ -1,8 +1,13 @@
 import { createClient } from "redis";
 
 let redisClient = null;
+let isInitialized = false;
 
 export const initializeRedis = async () => {
+    if (isInitialized) {
+        return redisClient;
+    }
+
     try {
         redisClient = createClient({
             url: process.env.REDIS_URL || "redis://localhost:6379",
@@ -24,6 +29,7 @@ export const initializeRedis = async () => {
         });
 
         await redisClient.connect();
+        isInitialized = true;
         return redisClient;
     } catch (error) {
         console.error("Failed to initialize Redis:", error.message);
@@ -38,12 +44,13 @@ export const getRedisClient = () => {
     return redisClient;
 };
 
+export const isRedisInitialized = () => isInitialized;
+
 export const closeRedis = async () => {
     if (redisClient) {
         await redisClient.quit();
         redisClient = null;
+        isInitialized = false;
         console.log("Redis connection closed");
     }
 };
-
-export default redisClient;

@@ -1,5 +1,5 @@
 import { Queue, Worker } from "bullmq";
-import { getRedisClient } from "../config/redis.js";
+import { getRedisClient, isRedisInitialized } from "../config/redis.js";
 import { calculateExamScore } from "./examScore.service.js";
 import {
     ExamAttempt,
@@ -12,11 +12,20 @@ import sequelize from "../config/db.js";
 
 let scoreQueue = null;
 let scoreWorker = null;
+let isInitialized = false;
 
 /**
  * Initialize the score calculation queue and worker
  */
 export const initializeScoreQueue = async () => {
+    if (isInitialized) {
+        return { scoreQueue, scoreWorker };
+    }
+
+    if (!isRedisInitialized()) {
+        throw new Error("Redis must be initialized before score calculation queue");
+    }
+
     try {
         const redis = getRedisClient();
 
@@ -121,12 +130,18 @@ export const initializeScoreQueue = async () => {
         });
 
         console.log("Score calculation queue and worker initialized");
+        isInitialized = true;
         return { scoreQueue, scoreWorker };
     } catch (error) {
         console.error("Failed to initialize score calculation queue:", error.message);
         throw error;
     }
 };
+
+/**
+ * Check if score queue is initialized
+ */
+export const isScoreQueueInitialized = () => isInitialized;
 
 /**
  * Get the score calculation queue instance
@@ -178,12 +193,15 @@ export const closeScoreQueue = async () => {
     try {
         if (scoreWorker) {
             await scoreWorker.close();
+            scoreWorker = null;
             console.log("Score calculation worker closed");
         }
         if (scoreQueue) {
             await scoreQueue.close();
+            scoreQueue = null;
             console.log("Score calculation queue closed");
         }
+        isInitialized = false;
     } catch (error) {
         console.error("Error closing score calculation queue:", error.message);
         throw error;
