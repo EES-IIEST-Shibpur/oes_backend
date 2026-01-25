@@ -1,147 +1,186 @@
 /**
  * AI Question Extraction Service
  * 
- * Handles integration with third-party AI models for question extraction.
- * Initially mocked with sample data; can be swapped with real AI API calls.
+ * Handles integration with AI models for question extraction.
+ * Uses GitHub Models (Azure OpenAI) for extraction, Tesseract.js for OCR.
+ * 
+ * SAFETY CRITICAL:
+ * - AI output is UNTRUSTED and goes ONLY to draft tables
+ * - Never writes to production question tables
+ * - Admin confirmation is mandatory
  * 
  * Responsibilities:
- * - Call OCR if needed (stub)
- * - Call AI model to extract questions (mock)
+ * - Call OCR using Tesseract.js (real implementation)
+ * - Call GitHub Models to extract questions (real implementation)
  * - Parse and structure AI response
  * - Calculate confidence scores
  */
 
-/**
- * Mock AI Model: Simulates calling an external AI service
- * 
- * Real implementation would call services like:
- * - OpenAI GPT-4 Vision (for images/PDFs)
- * - Claude API
- * - Google Gemini
- * - Specialized question extraction APIs
- */
-export const callAIQuestionExtraction = async (content, sourceType) => {
-    // In production, implement actual API calls here
-    // For now, return mock data with realistic structure
+import Tesseract from 'tesseract.js';
 
-    return {
-        success: true,
-        questionsExtracted: 3,
-        questions: [
-            {
-                statement: "What is the capital of France?",
-                questionType: "SINGLE_CORRECT",
-                domain: "Geography",
-                difficulty: "EASY",
-                confidence: 95,
-                options: [
-                    {
-                        text: "Paris",
-                        isCorrect: true,
-                        confidence: 98,
-                    },
-                    {
-                        text: "Lyon",
-                        isCorrect: false,
-                        confidence: 95,
-                    },
-                    {
-                        text: "Marseille",
-                        isCorrect: false,
-                        confidence: 96,
-                    },
-                    {
-                        text: "Toulouse",
-                        isCorrect: false,
-                        confidence: 94,
-                    },
-                ],
-            },
-            {
-                statement: "Which of the following are valid JavaScript data types? (Select all that apply)",
-                questionType: "MULTIPLE_CORRECT",
-                domain: "Programming",
-                difficulty: "MEDIUM",
-                confidence: 87,
-                options: [
-                    {
-                        text: "String",
-                        isCorrect: true,
-                        confidence: 99,
-                    },
-                    {
-                        text: "Integer",
-                        isCorrect: false,
-                        confidence: 92,
-                    },
-                    {
-                        text: "Object",
-                        isCorrect: true,
-                        confidence: 99,
-                    },
-                    {
-                        text: "Boolean",
-                        isCorrect: true,
-                        confidence: 99,
-                    },
-                ],
-            },
-            {
-                statement: "What is the atomic number of Carbon?",
-                questionType: "SINGLE_CORRECT",
-                domain: "Chemistry",
-                difficulty: "MEDIUM",
-                confidence: 92,
-                options: [
-                    {
-                        text: "4",
-                        isCorrect: true,
-                        confidence: 99,
-                    },
-                    {
-                        text: "6",
-                        isCorrect: false,
-                        confidence: 88,
-                    },
-                    {
-                        text: "8",
-                        isCorrect: false,
-                        confidence: 89,
-                    },
-                    {
-                        text: "12",
-                        isCorrect: false,
-                        confidence: 90,
-                    },
-                ],
-            },
-        ],
-    };
+// ACTIVE AI SERVICE: GitHub Models (Free via GitHub)
+import {
+    extractQuestionsWithGitHub,
+    mapQuestionType,
+    extractDomain,
+    calculateOverallConfidence,
+} from './llm/githubExtractor.service.js';
+
+// BACKUP AI SERVICES (Kept for reference)
+// Gemini (Free)
+// import {
+//     extractQuestionsWithGemini,
+//     mapQuestionType,
+//     extractDomain,
+//     calculateOverallConfidence,
+// } from './llm/geminiExtractor.service.js';
+//
+// ChatGPT (Paid)
+// import {
+//     extractQuestionsWithChatGPT,
+//     mapQuestionType,
+//     extractDomain,
+//     calculateOverallConfidence,
+// } from './llm/chatgptExtractor.service.js';
+
+/**
+ * Real AI Model using GitHub Models (Azure OpenAI)
+ * 
+ * IMPORTANT SAFETY NOTES:
+ * - AI output is treated as UNTRUSTED data
+ * - All extracted questions go to DRAFT tables only
+ * - Admin must review and confirm before production creation
+ * - Invalid/ambiguous output results in null fields for human review
+ * 
+ * @param {string} content - Extracted text from OCR or user input
+ * @param {string} sourceType - TEXT | IMAGE | PDF | CSV
+ * @param {object} context - Optional context (exam name, subject, etc.)
+ * @returns {Promise<object>} Extracted questions in standard format
+ */
+export const callAIQuestionExtraction = async (content, sourceType, context = {}) => {
+    // Log incoming content for debugging
+    console.log(`[AI Extraction] ========== INPUT DATA ==========`);
+    console.log(`[AI Extraction] Source Type: ${sourceType}`);
+    console.log(`[AI Extraction] Content length: ${content.length} characters`);
+    console.log(`[AI Extraction] Content preview (first 200 chars):`);
+    console.log(content.substring(0, 200));
+    console.log(`[AI Extraction] ====================================`);
+
+    try {
+        // Call GitHub Models to extract questions (FREE via GitHub token)
+        const githubResult = await extractQuestionsWithGitHub(content, context);
+
+        if (!githubResult.success || !githubResult.questions || githubResult.questions.length === 0) {
+            console.warn('[AI Extraction] GitHub Models returned no questions');
+            return {
+                success: true,
+                questionsExtracted: 0,
+                questions: [],
+            };
+        }
+
+        // Transform GitHub Models output to OES format
+        const transformedQuestions = githubResult.questions.map((githubQuestion) => {
+            // Map question type from GitHub Models format to OES format
+            const oesQuestionType = mapQuestionType(githubQuestion.questionType);
+
+            // Extract domain (from context or default)
+            const domain = extractDomain(context, githubQuestion.statement);
+
+            // Calculate overall confidence
+            const overallConfidence = calculateOverallConfidence(githubQuestion.confidence);
+
+            // Transform options
+            // WHY: OES requires specific format with isCorrect flags
+            // NOTE: GitHub Models does NOT determine correct answers (safety rule)
+            const options = githubQuestion.options.map((option, index) => ({
+                text: option.text || '',
+                isCorrect: false, // NEVER auto-mark correct answers - admin must decide
+                confidence: githubQuestion.confidence.options,
+            }));
+
+            return {
+                statement: githubQuestion.statement || '',
+                questionType: oesQuestionType,
+                domain: domain,
+                difficulty: 'MEDIUM', // Default, admin can change
+                confidence: overallConfidence,
+                options: options,
+            };
+        });
+
+        console.log(`[AI Extraction] ========== OUTPUT DATA ==========`);
+        console.log(`[AI Extraction] Questions extracted: ${transformedQuestions.length}`);
+        console.log(`[AI Extraction] Model: ${githubResult.usage?.model || 'gpt-4o-mini'}`);
+        console.log(`[AI Extraction] Tokens used: ${githubResult.usage?.tokens || 'N/A'}`);
+        console.log(`[AI Extraction] Data will be saved to DRAFT tables ONLY`);
+        console.log(`[AI Extraction] Admin review required before production`);
+        console.log(`[AI Extraction] ====================================`);
+
+        return {
+            success: true,
+            questionsExtracted: transformedQuestions.length,
+            questions: transformedQuestions,
+        };
+    } catch (error) {
+        console.error('[AI Extraction] ========== EXTRACTION FAILED ==========');
+        console.error('[AI Extraction] Error:', error.message);
+        console.error('[AI Extraction] ====================================');
+
+        // Return error but don't crash - upstream will handle
+        return {
+            success: false,
+            error: error.message,
+            questionsExtracted: 0,
+            questions: [],
+        };
+    }
 };
 
 /**
- * Mock OCR Service: Simulates extracting text from images/PDFs
+ * OCR Service: Uses Tesseract.js to extract text from images/PDFs
  * 
- * Real implementation would call:
- * - Tesseract.js
- * - AWS Textract
- * - Google Cloud Vision API
- * - Azure Computer Vision
+ * Real implementation using Tesseract.js for text recognition
  */
 export const performOCR = async (fileBuffer, fileType) => {
-    // In production, implement actual OCR here
-    // This is a stub that pretends to extract text
+    try {
+        console.log(`[OCR] Starting Tesseract OCR for ${fileType} file`);
+        console.log(`[OCR] File buffer size: ${fileBuffer.length} bytes`);
 
-    console.log(`[OCR Stub] Processing ${fileType} file`);
+        // Convert buffer to format Tesseract can process
+        const { data: { text, confidence } } = await Tesseract.recognize(
+            fileBuffer,
+            'eng', // Language code (English)
+            {
+                logger: (m) => {
+                    // Log progress
+                    if (m.status === 'recognizing text') {
+                        console.log(`[OCR] Progress: ${Math.round(m.progress * 100)}%`);
+                    }
+                }
+            }
+        );
 
-    // Simulate processing time
-    await new Promise((resolve) => setTimeout(resolve, 100));
+        console.log(`[OCR] ========== EXTRACTED TEXT ==========`);
+        console.log(text);
+        console.log(`[OCR] ====================================`);
+        console.log(`[OCR] Confidence: ${confidence}%`);
+        console.log(`[OCR] Text length: ${text.length} characters`);
 
-    return {
-        success: true,
-        extractedText: "Sample text extracted from image/PDF",
-        confidence: 85,
-    };
+        return {
+            success: true,
+            extractedText: text,
+            confidence: confidence,
+        };
+    } catch (error) {
+        console.error('[OCR] Tesseract error:', error);
+        return {
+            success: false,
+            error: error.message,
+            extractedText: '',
+            confidence: 0,
+        };
+    }
 };
 
 /**
@@ -162,17 +201,10 @@ export const validateExtractedQuestion = (question) => {
         errors.push("Question must have at least 2 options");
     }
 
-    if (question.questionType !== "NUMERICAL") {
-        const correctCount = question.options.filter((o) => o.isCorrect).length;
-
-        if (question.questionType === "SINGLE_CORRECT" && correctCount !== 1) {
-            errors.push("SINGLE_CORRECT must have exactly 1 correct option");
-        }
-
-        if (question.questionType === "MULTIPLE_CORRECT" && correctCount === 0) {
-            errors.push("MULTIPLE_CORRECT must have at least 1 correct option");
-        }
-    }
+    // NOTE: We do NOT validate correct answers here
+    // WHY: AI output has all isCorrect=false by design (safety rule)
+    // Admin must manually mark correct answers during review
+    // This validation is only for basic structure, not correctness
 
     return {
         isValid: errors.length === 0,

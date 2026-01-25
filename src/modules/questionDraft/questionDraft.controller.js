@@ -39,8 +39,12 @@ export const ingestQuestions = async (req, res) => {
     try {
         const adminId = req.user.userId; // From auth middleware
 
+        // Handle file upload - supports both upload.single() and upload.any()
+        // upload.single() populates req.file, upload.any() populates req.files
+        const uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
+
         // Validate request
-        const validation = validateIngestRequest(req.body, !!req.file);
+        const validation = validateIngestRequest(req.body, !!uploadedFile);
 
         if (!validation.isValid) {
             return res.status(400).json({
@@ -57,12 +61,12 @@ export const ingestQuestions = async (req, res) => {
         let ocrApplied = false;
 
         // Handle file upload (multipart)
-        if (req.file) {
-            sourceFileName = req.file.originalname;
+        if (uploadedFile) {
+            sourceFileName = uploadedFile.originalname;
 
             // If image or PDF, perform OCR
             if (["IMAGE", "PDF"].includes(sourceType)) {
-                const ocrResult = await performOCR(req.file.buffer, sourceType);
+                const ocrResult = await performOCR(uploadedFile.buffer, sourceType);
 
                 if (!ocrResult.success) {
                     return res.status(500).json({
@@ -76,7 +80,7 @@ export const ingestQuestions = async (req, res) => {
                 ocrApplied = true;
             } else if (sourceType === "CSV") {
                 // For CSV, file content as string
-                extractedContent = req.file.buffer.toString("utf-8");
+                extractedContent = uploadedFile.buffer.toString("utf-8");
             }
         }
 
@@ -87,8 +91,16 @@ export const ingestQuestions = async (req, res) => {
             });
         }
 
+        // Build context for AI extraction (optional metadata)
+        const context = {
+            batchName: batchName,
+            sourceType: sourceType,
+            subject: req.body.subject || req.body.domain, // Optional: subject/domain hint
+        };
+
         // Call AI to extract questions
-        const aiResponse = await callAIQuestionExtraction(extractedContent, sourceType);
+        // SAFETY: AI output goes to draft tables only, never to production
+        const aiResponse = await callAIQuestionExtraction(extractedContent, sourceType, context);
 
         if (!aiResponse.success) {
             return res.status(500).json({
