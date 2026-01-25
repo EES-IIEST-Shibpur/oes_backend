@@ -7,6 +7,9 @@ import Exam from "../exam/exam.model.js";
 import ExamQuestion from "../exam/exam.question.model.js";
 import ExamAttempt from "../examAttempt/examAttempt.model.js";
 import StudentAnswer from "../examAttempt/studentAnswer.model.js";
+import QuestionDraftBatch from "../questionDraft/questionDraftBatch.model.js";
+import QuestionDraft from "../questionDraft/questionDraft.model.js";
+import QuestionOptionDraft from "../questionDraft/questionOptionDraft.model.js";
 
 /* ---------------- USER ---------------- */
 
@@ -105,6 +108,30 @@ StudentAnswer.belongsTo(ExamAttempt, {
 Question.hasMany(StudentAnswer, { foreignKey: "questionId" });
 StudentAnswer.belongsTo(Question, { foreignKey: "questionId" });
 
+/* ---------------- QUESTION DRAFTS ↔ DRAFT OPTIONS ↔ BATCH ---- */
+
+QuestionDraftBatch.hasMany(QuestionDraft, {
+  foreignKey: "batchId",
+  as: "drafts",
+  onDelete: "CASCADE",
+});
+
+QuestionDraft.belongsTo(QuestionDraftBatch, {
+  foreignKey: "batchId",
+  as: "batch",
+});
+
+QuestionDraft.hasMany(QuestionOptionDraft, {
+  foreignKey: "draftQuestionId",
+  as: "options",
+  onDelete: "CASCADE",
+});
+
+QuestionOptionDraft.belongsTo(QuestionDraft, {
+  foreignKey: "draftQuestionId",
+  as: "question",
+});
+
 export {
   User,
   UserProfile,
@@ -115,4 +142,7 @@ export {
   ExamQuestion,
   ExamAttempt,
   StudentAnswer,
+  QuestionDraftBatch,
+  QuestionDraft,
+  QuestionOptionDraft,
 };
