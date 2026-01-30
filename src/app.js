@@ -13,7 +13,10 @@ if (process.env.NODE_ENV === "production") {
 // CORS configuration to allow credentials
 const origins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(",").map(x => x.trim())
-    : [];
+    : ["http://localhost:3000", "http://localhost:3001"]; // Fallback for development
+
+console.log("CORS_ORIGINS env:", process.env.CORS_ORIGINS);
+console.log("CORS allowed origins:", origins);
 
 app.use(cors({
     origin: function (origin, callback) {
@@ -24,7 +27,9 @@ app.use(cors({
             return callback(null, true);
         }
 
-        return callback(null, false);
+        // Log rejected origins for debugging
+        console.warn(`CORS: Rejected origin: ${origin}. Allowed: ${origins.join(', ')}`);
+        return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
 }));

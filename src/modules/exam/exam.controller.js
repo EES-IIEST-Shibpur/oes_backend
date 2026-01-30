@@ -171,6 +171,27 @@ export const updateQuestionsToExam = async (req, res) => {
 
         // Add questions
         if (Array.isArray(addQuestionIds) && addQuestionIds.length > 0) {
+            // Validate that all question IDs exist in the questions table
+            const questionIds = addQuestionIds.map(q => q.questionId);
+            const validQuestions = await Question.findAll({
+                where: {
+                    id: questionIds,
+                },
+                attributes: ['id'],
+                transaction,
+            });
+
+            if (validQuestions.length !== questionIds.length) {
+                await transaction.rollback();
+                const foundIds = validQuestions.map(q => q.id);
+                const invalidIds = questionIds.filter(id => !foundIds.includes(id));
+                return res.status(400).json({
+                    success: false,
+                    message: "One or more question IDs do not exist",
+                    invalidQuestionIds: invalidIds,
+                });
+            }
+
             // Find last order
             const lastQuestion = await ExamQuestion.findOne({
                 where: { examId },
@@ -184,7 +205,7 @@ export const updateQuestionsToExam = async (req, res) => {
             const existing = await ExamQuestion.findAll({
                 where: {
                     examId,
-                    questionId: addQuestionIds.map(q => q.questionId),
+                    questionId: questionIds,
                 },
                 transaction,
             });

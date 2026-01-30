@@ -5,3 +5,9 @@ node_modules
 .env.test
 .env.example
 docs/
+Dockerfile
+docker-compose.yaml
+deploy.sh
+nginx.conf
+.dockerignore
+eng.traineddata
