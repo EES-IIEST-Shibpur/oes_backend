@@ -43,6 +43,7 @@ export const ingestQuestions = async (req, res) => {
         // upload.single() populates req.file, upload.any() populates req.files
         const uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
 
+        console.log("Req file", req.file?.filename, "source Type", req.body.sourceType, "batchName", req.body.batchName);
         // Validate request
         const validation = validateIngestRequest(req.body, !!uploadedFile);
 

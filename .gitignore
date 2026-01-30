@@ -10,3 +10,4 @@ docker-compose.yaml
 deploy.sh
 nginx.conf
 .dockerignore
+eng.traineddata
