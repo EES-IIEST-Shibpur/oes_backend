@@ -1,10 +1,5 @@
-import { loadEnvironment } from "./config/env.js";
-
-// Load environment variables first, before any other imports
-const NODE_ENV = loadEnvironment();
-
 import app from "./app.js";
-import { initializeDatabase, closeDatabase, getSequelizeInstance } from "./config/db.js";
+import { initializeDatabase, closeDatabase } from "./config/db.js";
 import { initializeEmailTransporter, verifyEmailTransporter } from "./services/email.service.js";
 import { initializeRedis, closeRedis } from "./config/redis.js";
 import { initializeEmailQueue, closeEmailQueue } from "./services/emailQueue.service.js";
@@ -26,17 +21,6 @@ const startServer = async () => {
     const initializedServices = [];
 
     try {
-        console.log("   Starting server with configuration:");
-        console.log(`   Environment: ${NODE_ENV}`);
-        console.log(`   Database: ${ENABLE_DATABASE ? "enabled" : "disabled"}`);
-        console.log(`   Redis: ${ENABLE_REDIS ? "enabled" : "disabled"}`);
-        console.log(`   Email Queue: ${ENABLE_EMAIL_QUEUE ? "enabled" : "disabled"}`);
-        console.log(`   Score Queue: ${ENABLE_SCORE_QUEUE ? "enabled" : "disabled"}`);
-        console.log(`   Email Service: ${ENABLE_EMAIL_SERVICE ? "enabled" : "disabled"}`);
-        console.log(`   Cron Jobs: ${ENABLE_CRON_JOBS ? "enabled" : "disabled"}`);
-        console.log(`   Associations: ${ENABLE_ASSOCIATIONS ? "enabled" : "disabled"}`);
-        console.log("");
-
         // Database
         if (ENABLE_DATABASE) {
             await initializeDatabase();
@@ -45,7 +29,6 @@ const startServer = async () => {
             // Load associations if enabled
             if (ENABLE_ASSOCIATIONS) {
                 await import("./modules/association/index.js");
-                console.log("Database associations loaded");
             }
         }
 
@@ -84,7 +67,6 @@ const startServer = async () => {
         const server = app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log(`Initialized services: ${initializedServices.join(", ")}`);
-            console.log("Process PID: ", process.pid)
         });
 
         // Graceful shutdown

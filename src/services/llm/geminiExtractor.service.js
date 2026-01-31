@@ -86,9 +86,6 @@ const extractionResponseSchema = Joi.object({
  */
 export const extractQuestionsWithGemini = async (rawOcrText, context = {}) => {
     try {
-        console.log('[Gemini Extractor] ========== STARTING EXTRACTION ==========');
-        console.log(`[Gemini Extractor] OCR text length: ${rawOcrText.length} characters`);
-        console.log(`[Gemini Extractor] Context:`, context);
 
         // Validate input
         if (!rawOcrText || rawOcrText.trim().length === 0) {
@@ -97,10 +94,6 @@ export const extractQuestionsWithGemini = async (rawOcrText, context = {}) => {
 
         // Build the user prompt using imported function
         const userPrompt = buildGeminiUserPrompt(rawOcrText, context);
-
-        console.log('[Gemini Extractor] Calling Google Gemini API...');
-        console.log('[Gemini Extractor] Model: gemini-2.0-flash');
-        console.log('[Gemini Extractor] Temperature: 0 (deterministic)');
 
         // Get Gemini client (lazy initialization with error handling)
         const ai = getGeminiClient();
@@ -119,9 +112,6 @@ export const extractQuestionsWithGemini = async (rawOcrText, context = {}) => {
         });
 
         const responseText = response.text;
-
-        console.log('[Gemini Extractor] API call successful');
-        console.log('[Gemini Extractor] Response length:', responseText.length);
 
         // Parse JSON
         let parsedResponse;
@@ -143,19 +133,6 @@ export const extractQuestionsWithGemini = async (rawOcrText, context = {}) => {
             console.error('[Gemini Extractor] Invalid response:', JSON.stringify(parsedResponse, null, 2));
             throw new Error(`Gemini response validation failed: ${error.message}`);
         }
-
-        console.log('[Gemini Extractor] ========== EXTRACTION SUCCESSFUL ==========');
-        console.log(`[Gemini Extractor] Questions extracted: ${value.questions.length}`);
-
-        // Log summary of each question
-        value.questions.forEach((q, idx) => {
-            console.log(`[Gemini Extractor] Q${idx + 1}: ${q.statement?.substring(0, 60)}...`);
-            console.log(`[Gemini Extractor]   Type: ${q.questionType || 'null'}`);
-            console.log(`[Gemini Extractor]   Options: ${q.options.length}`);
-            console.log(`[Gemini Extractor]   Confidence: Statement=${q.confidence.statement}%, Options=${q.confidence.options}%`);
-        });
-
-        console.log('[Gemini Extractor] ================================================');
 
         return {
             success: true,

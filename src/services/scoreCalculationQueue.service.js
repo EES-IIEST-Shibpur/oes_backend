@@ -39,7 +39,6 @@ export const initializeScoreQueue = async () => {
             "score-calculation",
             async (job) => {
                 try {
-                    console.log(`Processing score calculation for attempt ${job.data.attemptId}`);
 
                     const { attemptId } = job.data;
 
@@ -57,7 +56,6 @@ export const initializeScoreQueue = async () => {
 
                         // Skip if already calculated
                         if (attempt.score !== null) {
-                            console.log(`Score already calculated for attempt ${attemptId}`);
                             return {
                                 success: true,
                                 attemptId,
@@ -87,7 +85,6 @@ export const initializeScoreQueue = async () => {
                         attempt.score = score;
                         await attempt.save({ transaction: t });
 
-                        console.log(`Score calculated for attempt ${attemptId}: ${score}`);
 
                         return {
                             success: true,
@@ -116,20 +113,6 @@ export const initializeScoreQueue = async () => {
             }
         );
 
-        // Event listeners
-        scoreWorker.on("completed", (job, result) => {
-            console.log(`Score calculation job ${job.id} completed for attempt ${result.attemptId} with score ${result.score}`);
-        });
-
-        scoreWorker.on("failed", (job, error) => {
-            console.error(`Score calculation job ${job.id} failed after retries:`, error.message);
-        });
-
-        scoreQueue.on("error", (error) => {
-            console.error("Score calculation queue error:", error);
-        });
-
-        console.log("Score calculation queue and worker initialized");
         isInitialized = true;
         return { scoreQueue, scoreWorker };
     } catch (error) {
@@ -178,7 +161,7 @@ export const addScoreCalculationJob = async (attemptId, options = {}) => {
             }
         );
 
-        console.log(`Score calculation job ${job.id} added for attempt ${attemptId}`);
+
         return job;
     } catch (error) {
         console.error(`Failed to add score calculation job for attempt ${attemptId}:`, error.message);
@@ -194,12 +177,10 @@ export const closeScoreQueue = async () => {
         if (scoreWorker) {
             await scoreWorker.close();
             scoreWorker = null;
-            console.log("Score calculation worker closed");
         }
         if (scoreQueue) {
             await scoreQueue.close();
             scoreQueue = null;
-            console.log("Score calculation queue closed");
         }
         isInitialized = false;
     } catch (error) {

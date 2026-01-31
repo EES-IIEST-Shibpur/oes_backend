@@ -34,7 +34,6 @@ export const verifyEmailTransporter = async () => {
     try {
         const emailTransporter = initializeEmailTransporter();
         await emailTransporter.verify();
-        console.log("Email transporter verified");
     } catch (error) {
         console.error("SMTP configuration error:", error.message);
         throw error;
@@ -75,7 +74,6 @@ export const sendEmail = async ({ to, subject, html }) => {
 export const sendEmailQueued = async ({ to, subject, html }, options = {}) => {
     // If email queue is not initialized, send directly
     if (!isEmailQueueInitialized()) {
-        console.log("Email queue not available, sending directly...");
         return await sendEmail({ to, subject, html });
     }
 
@@ -94,7 +92,6 @@ export const sendEmailQueued = async ({ to, subject, html }, options = {}) => {
         });
 
         // Fallback: Try to send directly if queue fails
-        console.log("Attempting direct send as fallback...");
         try {
             return await sendEmail({ to, subject, html });
         } catch (fallbackError) {

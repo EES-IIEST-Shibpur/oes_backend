@@ -58,13 +58,6 @@ import {
  * @returns {Promise<object>} Extracted questions in standard format
  */
 export const callAIQuestionExtraction = async (content, sourceType, context = {}) => {
-    // Log incoming content for debugging
-    console.log(`[AI Extraction] ========== INPUT DATA ==========`);
-    console.log(`[AI Extraction] Source Type: ${sourceType}`);
-    console.log(`[AI Extraction] Content length: ${content.length} characters`);
-    console.log(`[AI Extraction] Content preview (first 200 chars):`);
-    console.log(content.substring(0, 200));
-    console.log(`[AI Extraction] ====================================`);
 
     try {
         // Call GitHub Models to extract questions (FREE via GitHub token)
@@ -109,13 +102,6 @@ export const callAIQuestionExtraction = async (content, sourceType, context = {}
             };
         });
 
-        console.log(`[AI Extraction] ========== OUTPUT DATA ==========`);
-        console.log(`[AI Extraction] Questions extracted: ${transformedQuestions.length}`);
-        console.log(`[AI Extraction] Model: ${githubResult.usage?.model || 'gpt-4o-mini'}`);
-        console.log(`[AI Extraction] Tokens used: ${githubResult.usage?.tokens || 'N/A'}`);
-        console.log(`[AI Extraction] Data will be saved to DRAFT tables ONLY`);
-        console.log(`[AI Extraction] Admin review required before production`);
-        console.log(`[AI Extraction] ====================================`);
 
         return {
             success: true,
@@ -144,28 +130,12 @@ export const callAIQuestionExtraction = async (content, sourceType, context = {}
  */
 export const performOCR = async (fileBuffer, fileType) => {
     try {
-        console.log(`[OCR] Starting Tesseract OCR for ${fileType} file`);
-        console.log(`[OCR] File buffer size: ${fileBuffer.length} bytes`);
 
         // Convert buffer to format Tesseract can process
         const { data: { text, confidence } } = await Tesseract.recognize(
             fileBuffer,
             'eng', // Language code (English)
-            {
-                logger: (m) => {
-                    // Log progress
-                    if (m.status === 'recognizing text') {
-                        console.log(`[OCR] Progress: ${Math.round(m.progress * 100)}%`);
-                    }
-                }
-            }
         );
-
-        console.log(`[OCR] ========== EXTRACTED TEXT ==========`);
-        console.log(text);
-        console.log(`[OCR] ====================================`);
-        console.log(`[OCR] Confidence: ${confidence}%`);
-        console.log(`[OCR] Text length: ${text.length} characters`);
 
         return {
             success: true,

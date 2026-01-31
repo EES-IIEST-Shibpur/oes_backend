@@ -89,9 +89,6 @@ const extractionResponseSchema = Joi.object({
  */
 export const extractQuestionsWithChatGPT = async (rawOcrText, context = {}) => {
     try {
-        console.log('[ChatGPT Extractor] ========== STARTING EXTRACTION ==========');
-        console.log(`[ChatGPT Extractor] OCR text length: ${rawOcrText.length} characters`);
-        console.log(`[ChatGPT Extractor] Context:`, context);
 
         // Validate input
         if (!rawOcrText || rawOcrText.trim().length === 0) {
@@ -100,10 +97,6 @@ export const extractQuestionsWithChatGPT = async (rawOcrText, context = {}) => {
 
         // Build the user prompt using imported function
         const userPrompt = buildChatGPTUserPrompt(rawOcrText, context);
-
-        console.log('[ChatGPT Extractor] Calling OpenAI Chat Completion API...');
-        console.log('[ChatGPT Extractor] Model: gpt-3.5-turbo');
-        console.log('[ChatGPT Extractor] Temperature: 0 (deterministic)');
 
         // Get OpenAI client (lazy initialization with error handling)
         const openai = getOpenAIClient();
@@ -125,17 +118,12 @@ export const extractQuestionsWithChatGPT = async (rawOcrText, context = {}) => {
             response_format: { type: 'json_object' }, // Enforce JSON mode
         });
 
-        console.log('[ChatGPT Extractor] API call successful');
-        console.log(`[ChatGPT Extractor] Tokens used: ${completion.usage.total_tokens}`);
-
         // Extract response content
         const responseContent = completion.choices[0]?.message?.content;
 
         if (!responseContent) {
             throw new Error('ChatGPT returned empty response');
         }
-
-        console.log('[ChatGPT Extractor] Raw response length:', responseContent.length);
 
         // Parse JSON
         let parsedResponse;
@@ -157,19 +145,6 @@ export const extractQuestionsWithChatGPT = async (rawOcrText, context = {}) => {
             console.error('[ChatGPT Extractor] Invalid response:', JSON.stringify(parsedResponse, null, 2));
             throw new Error(`ChatGPT response validation failed: ${error.message}`);
         }
-
-        console.log('[ChatGPT Extractor] ========== EXTRACTION SUCCESSFUL ==========');
-        console.log(`[ChatGPT Extractor] Questions extracted: ${value.questions.length}`);
-
-        // Log summary of each question
-        value.questions.forEach((q, idx) => {
-            console.log(`[ChatGPT Extractor] Q${idx + 1}: ${q.statement?.substring(0, 60)}...`);
-            console.log(`[ChatGPT Extractor]   Type: ${q.questionType || 'null'}`);
-            console.log(`[ChatGPT Extractor]   Options: ${q.options.length}`);
-            console.log(`[ChatGPT Extractor]   Confidence: Statement=${q.confidence.statement}%, Options=${q.confidence.options}%`);
-        });
-
-        console.log('[ChatGPT Extractor] ================================================');
 
         return {
             success: true,

@@ -93,9 +93,6 @@ const extractionResponseSchema = Joi.object({
  */
 export const extractQuestionsWithGitHub = async (rawOcrText, context = {}) => {
     try {
-        console.log('[GitHub Extractor] ========== STARTING EXTRACTION ==========');
-        console.log(`[GitHub Extractor] OCR text length: ${rawOcrText.length} characters`);
-        console.log(`[GitHub Extractor] Context:`, context);
 
         // Validate input
         if (!rawOcrText || rawOcrText.trim().length === 0) {
@@ -104,11 +101,6 @@ export const extractQuestionsWithGitHub = async (rawOcrText, context = {}) => {
 
         // Build the user prompt using imported function
         const userPrompt = buildGitHubUserPrompt(rawOcrText, context);
-
-        console.log('[GitHub Extractor] Calling GitHub Models API...');
-        console.log('[GitHub Extractor] Endpoint: https://models.github.ai/inference');
-        console.log('[GitHub Extractor] Model: gpt-4o-mini');
-        console.log('[GitHub Extractor] Temperature: 0 (deterministic)');
 
         // Get GitHub client (lazy initialization)
         const client = getGitHubClient();
@@ -136,9 +128,6 @@ export const extractQuestionsWithGitHub = async (rawOcrText, context = {}) => {
             throw new Error('GitHub Models returned empty response');
         }
 
-        console.log('[GitHub Extractor] API call successful');
-        console.log('[GitHub Extractor] Response length:', responseText.length);
-
         // Parse JSON
         let parsedResponse;
         try {
@@ -159,19 +148,6 @@ export const extractQuestionsWithGitHub = async (rawOcrText, context = {}) => {
             console.error('[GitHub Extractor] Invalid response:', JSON.stringify(parsedResponse, null, 2));
             throw new Error(`GitHub Models response validation failed: ${error.message}`);
         }
-
-        console.log('[GitHub Extractor] ========== EXTRACTION SUCCESSFUL ==========');
-        console.log(`[GitHub Extractor] Questions extracted: ${value.questions.length}`);
-
-        // Log summary of each question
-        value.questions.forEach((q, idx) => {
-            console.log(`[GitHub Extractor] Q${idx + 1}: ${q.statement?.substring(0, 60)}...`);
-            console.log(`[GitHub Extractor]   Type: ${q.questionType || 'null'}`);
-            console.log(`[GitHub Extractor]   Options: ${q.options.length}`);
-            console.log(`[GitHub Extractor]   Confidence: Statement=${q.confidence.statement}%, Options=${q.confidence.options}%`);
-        });
-
-        console.log('[GitHub Extractor] ================================================');
 
         return {
             success: true,

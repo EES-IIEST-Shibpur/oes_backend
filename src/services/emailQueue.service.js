@@ -30,7 +30,6 @@ export const initializeEmailQueue = async () => {
             "email",
             async (job) => {
                 try {
-                    console.log(`Processing email job ${job.id} to ${job.data.to}`);
 
                     const result = await sendEmail({
                         to: job.data.to,
@@ -66,20 +65,10 @@ export const initializeEmailQueue = async () => {
             }
         );
 
-        // Event listeners
-        emailWorker.on("completed", (job) => {
-            console.log(`Email job ${job.id} completed successfully`);
-        });
-
-        emailWorker.on("failed", (job, error) => {
-            console.error(`Email job ${job.id} failed after retries:`, error.message);
-        });
-
         emailQueue.on("error", (error) => {
             console.error("Email queue error:", error);
         });
 
-        console.log("Email queue and worker initialized");
         isInitialized = true;
         return { emailQueue, emailWorker };
     } catch (error) {
@@ -135,7 +124,7 @@ export const addEmailJob = async (to, subject, html, options = {}) => {
             }
         );
 
-        console.log(`Email job created: ${job.id} for ${to}`);
+
         return job;
     } catch (error) {
         console.error("Failed to add email job:", error.message);
@@ -181,7 +170,6 @@ export const closeEmailQueue = async () => {
             await emailQueue.close();
             emailQueue = null;
         }
-        console.log("Email queue and worker closed");
     } catch (error) {
         console.error("Error closing email queue:", error.message);
     }

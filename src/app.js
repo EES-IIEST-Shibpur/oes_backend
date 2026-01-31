@@ -10,6 +10,7 @@ if (process.env.NODE_ENV === "production") {
     app.set("trust proxy", 1);
 }
 
+/*
 // CORS configuration to allow credentials
 const origins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(",").map(x => x.trim())
@@ -33,6 +34,7 @@ app.use(cors({
     },
     credentials: true,
 }));
+*/
 
 app.use(express.json());
 app.use(cookieParser());

@@ -10,7 +10,6 @@ let cronJob = null;
  */
 export const initializeAutoSubmitCron = () => {
   if (cronJob) {
-    console.log("Auto-submit cron job already initialized");
     return cronJob;
   }
 
@@ -33,16 +32,9 @@ export const initializeAutoSubmitCron = () => {
           attempt.submittedAt = new Date();
           await attempt.save();
 
-          console.log(
-            `Auto-submitted attempt ${attempt.id} (exam ${attempt.examId})`
-          );
-
           // Calculate score immediately
           try {
             await calculateExamScore(attempt.examId, attempt.userId);
-            console.log(
-              `Score calculated for attempt ${attempt.id}`
-            );
           } catch (error) {
             console.error(
               `Failed to calculate score for attempt ${attempt.id}:`,
@@ -57,8 +49,6 @@ export const initializeAutoSubmitCron = () => {
   }, {
     scheduled: false // Don't start automatically
   });
-
-  console.log("Auto-submit cron job initialized (not started)");
   return cronJob;
 };
 
@@ -69,10 +59,9 @@ export const startAutoSubmitCron = () => {
   if (!cronJob) {
     initializeAutoSubmitCron();
   }
-  
+
   if (cronJob && !cronJob.running) {
     cronJob.start();
-    console.log("Auto-submit cron job started");
   }
 };
 
@@ -82,7 +71,6 @@ export const startAutoSubmitCron = () => {
 export const stopAutoSubmitCron = () => {
   if (cronJob) {
     cronJob.stop();
-    console.log("Auto-submit cron job stopped");
   }
 };
 
@@ -93,6 +81,5 @@ export const destroyAutoSubmitCron = () => {
   if (cronJob) {
     cronJob.stop();
     cronJob = null;
-    console.log("Auto-submit cron job destroyed");
   }
 };

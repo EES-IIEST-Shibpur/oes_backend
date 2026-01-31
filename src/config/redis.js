@@ -20,14 +20,6 @@ export const initializeRedis = async () => {
             console.error("Redis Client Error:", err);
         });
 
-        redisClient.on("connect", () => {
-            console.log("Redis connected successfully");
-        });
-
-        redisClient.on("ready", () => {
-            console.log("Redis client ready");
-        });
-
         await redisClient.connect();
         isInitialized = true;
         return redisClient;
