@@ -11,11 +11,9 @@ import leaderboardRoutes from '../modules/leaderboard/leaderboard.route.js'
 const router = express.Router();
 
 router.get("/health", (req, res) => {
-    const corsOrigins = process.env.CORS_ORIGINS || "not set";
     res.status(200).json({
         success: true,
         timestamp: new Date().toISOString(),
-        corsOrigins: corsOrigins,
         req_IPaddress: req.ip
     });
 });
