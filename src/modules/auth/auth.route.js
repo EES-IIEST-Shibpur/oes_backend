@@ -11,12 +11,6 @@ import {
 } from './auth.controller.js';
 
 import {
-    loginLimiter,
-    forgotPasswordLimiter,
-    resetPasswordLimiter,
-} from '../../middlewares/rateLimit.middleware.js';
-
-import {
     requireAuth,
     requireEmailVerified,
 } from '../../middlewares/auth.middleware.js';
@@ -24,14 +18,14 @@ import {
 const router = express.Router();
 
 router.post('/signup', signup);
-router.post('/login', loginLimiter, login);
+router.post('/login', login);
 router.post('/logout', logout);
 
 router.post('/verify-email/:token', verifyEmail);
 router.post('/resend-verification', resendVerificationEmail);
 
-router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
-router.post('/reset-password', resetPasswordLimiter, resetPassword);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 router.post(
     '/change-password',

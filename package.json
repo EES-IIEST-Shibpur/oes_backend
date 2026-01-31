@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
+    "build": "echo \"No build step defined\"",
     "dev": "nodemon src/server.js",
     "test": "jest"
   },
